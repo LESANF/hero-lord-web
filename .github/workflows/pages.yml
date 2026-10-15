@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  deployments: write   # prune old deployment records after each deploy
 
 concurrency:
   group: pages
@@ -38,3 +39,16 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Keep only this deployment record
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          keep=$(gh api "repos/$REPO/deployments?environment=github-pages&per_page=1" --jq '.[0].id')
+          for id in $(gh api "repos/$REPO/deployments?per_page=100" --jq '.[].id'); do
+            [ "$id" = "$keep" ] && continue
+            gh api -X POST "repos/$REPO/deployments/$id/statuses" -f state=inactive >/dev/null
+            gh api -X DELETE "repos/$REPO/deployments/$id"
+          done
+          echo "kept deployment $keep"
