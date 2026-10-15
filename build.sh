@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 APK=$1
 TEMPLATE=${2:-}
 
-rm -rf build/project
+rm -rf build/project build/web
 mkdir -p build/web
 python3 -I tools/extract_project.py "$APK" build/project
 cp web/override.cfg web/web_shim.gd build/project/

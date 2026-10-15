@@ -21,6 +21,8 @@ TPZ_URL = "https://github.com/godotengine/godot-builds/releases/download/4.6-sta
 TEMPLATE_MEMBER = "templates/web_nothreads_release.zip"
 TEMPLATE_SHA256 = "25d12ed1dda42fe4d863d6bd78075d632b41401afb085947bb4d3865a341fd90"
 RUNTIME_FILES = ("godot.js", "godot.wasm", "godot.audio.worklet.js", "godot.audio.position.worklet.js")
+PACK = "hero-lord.pck"
+PART_SIZE = 64 * 1024 * 1024
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
@@ -74,14 +76,35 @@ def template_zip(local: str | None) -> bytes:
     return data
 
 
+def split_pack(out_dir: pathlib.Path) -> list:
+    """hero-lord.pck -> hero-lord.pck.partN (<100 MB each); returns [[name, size], ...].
+
+    Static hosts cap single files at 100 MB (Vercel rejects the upload outright),
+    so the whole pack never ships as one file; web/index.html reassembles it.
+    """
+    pck = out_dir / PACK
+    if pck.exists():
+        for old in out_dir.glob(PACK + ".part*"):
+            old.unlink()
+        with pck.open("rb") as f:
+            for i, chunk in enumerate(iter(lambda: f.read(PART_SIZE), b"")):
+                (out_dir / f"{PACK}.part{i}").write_bytes(chunk)
+        pck.unlink()
+    parts = sorted(out_dir.glob(PACK + ".part*"), key=lambda p: int(p.suffix[5:]))
+    if not parts:
+        raise SystemExit(f"no {PACK} in {out_dir}; run tools/pack_pck.py first")
+    return [[p.name, p.stat().st_size] for p in parts]
+
+
 def main(out: str, local_template: str | None = None) -> None:
     out_dir = pathlib.Path(out)
     out_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(io.BytesIO(template_zip(local_template))) as z:
         for name in RUNTIME_FILES:
             (out_dir / name).write_bytes(z.read(name))
-    sizes = {p.name: p.stat().st_size for p in out_dir.iterdir() if p.suffix in (".pck", ".wasm")}
-    html = (ROOT / "web" / "index.html").read_text().replace("__FILE_SIZES__", json.dumps(sizes))
+    parts = split_pack(out_dir)
+    html = (ROOT / "web" / "index.html").read_text()
+    html = html.replace("__PARTS__", json.dumps(parts)).replace("__WASM_SIZE__", str((out_dir / "godot.wasm").stat().st_size))
     (out_dir / "index.html").write_text(html)
     for p in sorted(out_dir.iterdir()):
         print(f"{p.stat().st_size:>12} {p.name}")
