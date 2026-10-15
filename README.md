@@ -3,8 +3,7 @@
 **영웅서기: 솔티아의 바람 리마스터** (fan remaster by Nimdal, shipped as a Godot 4.6
 Android APK) running in the browser.
 
-- GitHub Pages: https://lesanf.github.io/hero-lord-web/
-- Vercel: deployed from `main` by the Vercel Git integration (`vercel.json`)
+- Live: https://lesanf.github.io/hero-lord-web/ (GitHub Pages, rebuilt from `main` by Actions; only the latest deployment is ever served)
 
 ## 원작 그래픽 / 리마스터 그래픽
 
@@ -98,10 +97,9 @@ one. No editor project, no Node.
 
 ## Deploy
 
-- **GitHub Pages**: `.github/workflows/pages.yml` downloads the APK from the
-  `apk-r24` release, runs `build.sh`, deploys `build/web/`.
-- **Vercel**: `vercel.json` does the same inside Vercel's build. The PCK is
-  split because Vercel rejects single files over 100 MB.
+`.github/workflows/pages.yml` downloads the APK from the `apk-r24` release, runs
+`build.sh` and deploys `build/web/` to GitHub Pages. Each push to `main`
+replaces the site; there is no second host and no preview deployments.
 
 ## Credits and legal
 

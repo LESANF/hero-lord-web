@@ -38,9 +38,9 @@ body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none
 </div>
 <script src="godot.js"></script>
 <script>
-// Filled by tools/build_web.py. The PCK ships as <100 MB parts because static
-// hosts (Vercel, and to be safe GitHub Pages) cap single files; the parts are
-// fetched in parallel straight into one buffer and handed to the engine.
+// Filled by tools/build_web.py. The PCK ships as 64 MB parts (static hosts tend to
+// cap single files at 100 MB); the parts are fetched in parallel straight into one
+// buffer and handed to the engine.
 const PACK = 'hero-lord.pck';
 const PARTS = __PARTS__;
 const WASM_SIZE = __WASM_SIZE__;

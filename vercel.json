@@ -1,7 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "buildCommand": "curl -fsSL -o game.apk https://github.com/LESANF/hero-lord-web/releases/download/apk-r24/hero-lord-remaster-20261014-r24.apk && ./build.sh game.apk",
-  "outputDirectory": "build/web",
-  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ]"
-}
