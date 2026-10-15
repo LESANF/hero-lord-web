@@ -77,20 +77,24 @@ def template_zip(local: str | None) -> bytes:
 
 
 def split_pack(out_dir: pathlib.Path) -> list:
-    """hero-lord.pck -> hero-lord.pck.partN (<100 MB each); returns [[name, size], ...].
+    """hero-lord.pck -> hero-lord.<sha8>.partN (<100 MB each); returns [[name, size], ...].
 
-    Static hosts cap single files at 100 MB (Vercel rejects the upload outright),
-    so the whole pack never ships as one file; web/index.html reassembles it.
+    Static hosts cap single files at 100 MB, so the whole pack never ships as one
+    file; web/index.html reassembles it. The content hash is in the name because
+    GitHub Pages caches files for 10 minutes and parts 0/1 are always exactly
+    64 MiB: with fixed names a browser could glue a cached old part0 onto a fresh
+    part2 and the size check would not notice. New build, new names, no mixing.
     """
     pck = out_dir / PACK
     if pck.exists():
-        for old in out_dir.glob(PACK + ".part*"):
+        for old in out_dir.glob("hero-lord.*.part*"):
             old.unlink()
+        digest = hashlib.sha256(pck.read_bytes()).hexdigest()[:8]
         with pck.open("rb") as f:
             for i, chunk in enumerate(iter(lambda: f.read(PART_SIZE), b"")):
-                (out_dir / f"{PACK}.part{i}").write_bytes(chunk)
+                (out_dir / f"hero-lord.{digest}.part{i}").write_bytes(chunk)
         pck.unlink()
-    parts = sorted(out_dir.glob(PACK + ".part*"), key=lambda p: int(p.suffix[5:]))
+    parts = sorted(out_dir.glob("hero-lord.*.part*"), key=lambda p: int(p.suffix[5:]))
     if not parts:
         raise SystemExit(f"no {PACK} in {out_dir}; run tools/pack_pck.py first")
     return [[p.name, p.stat().st_size] for p in parts]
@@ -108,7 +112,8 @@ def main(out: str, local_template: str | None = None) -> None:
     for img in (ROOT / "web" / "img").glob("*"):                                # loading backdrop etc.
         (out_dir / "img" / img.name).write_bytes(img.read_bytes())
     html = (ROOT / "web" / "index.html").read_text()
-    html = html.replace("__PARTS__", json.dumps(parts)).replace("__WASM_SIZE__", str((out_dir / "godot.wasm").stat().st_size))
+    build_id = parts[0][0].split(".")[1]
+    html = html.replace("__PARTS__", json.dumps(parts)).replace("__WASM_SIZE__", str((out_dir / "godot.wasm").stat().st_size)).replace("__BUILD__", build_id)
     (out_dir / "index.html").write_text(html)
     for p in sorted(out_dir.iterdir()):
         print(f"{p.stat().st_size:>12} {p.name}")
