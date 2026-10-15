@@ -327,7 +327,6 @@ func _in_move_zone(stick: Control, at: Vector2) -> bool:
 func _window_input(event: InputEvent) -> void:
 	if game == null or event.device == InputEvent.DEVICE_ID_EMULATION or not (event is InputEventScreenTouch):
 		return
-	_action_touch(event)
 	var stick: Control = game.get("joystick")
 	if stick == null:
 		return
@@ -340,49 +339,3 @@ func _window_input(event: InputEvent) -> void:
 	elif event.index == _stick_touch:
 		_stick_touch = -1
 		stick.set_deferred("position", _stick_home)
-
-
-# ── Mobile actions fire on touch-down, like keys ──────────────────────────────────────
-# The game's touch router (game.gd _touch_ui) presses HUD buttons on touch-down but only
-# emits `pressed` when the finger lifts, so attacks/skills land late and a thumb that
-# slides off the button never fires. Keyboard keys act on key-down. For the action
-# buttons we emit on touch-down here (window_input runs before the router) and, when that
-# finger lifts, take the button out of the router's table first so it does not fire twice.
-const ACTION_BUTTONS := ["talk_button", "strong_button", "item_button", "cycle_button"]
-const UI_SKIN := preload("res://scripts/ui_skin.gd")
-var _fired: Dictionary = {}   # touch index -> Button already fired on touch-down
-
-
-func _action_buttons() -> Array:
-	var list: Array = []
-	for prop in ACTION_BUTTONS:
-		var b: Variant = game.get(prop)
-		if b is Button:
-			list.append(b)
-	for b in game.get("skill_buttons"):
-		if b is Button:
-			list.append(b)
-	return list
-
-
-func _action_touch(event: InputEventScreenTouch) -> void:
-	if event.pressed and not event.canceled:
-		if game.get("mode") != "play":
-			return
-		var dialogue: Variant = game.get("dialogue_panel")
-		if dialogue is CanvasItem and (dialogue as CanvasItem).is_visible_in_tree():
-			return
-		for b in _action_buttons():
-			if b.is_visible_in_tree() and not b.disabled and bool(game.call("_key_contains", b, event.position)):
-				_fired[event.index] = b
-				b.pressed.emit()
-				return
-	elif _fired.has(event.index):
-		var b: Button = _fired[event.index]
-		_fired.erase(event.index)
-		var table: Dictionary = game.get("touch_buttons")
-		if table.get(event.index) == b:
-			table.erase(event.index)
-		if is_instance_valid(b):
-			b.set_pressed_no_signal(false)
-			UI_SKIN.press(b, false)
