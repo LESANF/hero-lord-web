@@ -41,6 +41,7 @@ body { background: #0b1326; color: #3a2f2a; overflow: hidden; touch-action: none
 #artbar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); display: none; padding: 3px; border-radius: 999px;
   background: rgba(30, 26, 24, .72); backdrop-filter: blur(6px); box-shadow: 0 2px 8px rgba(0,0,0,.25); touch-action: manipulation; }
 #artbar.show { display: flex; }
+#artbar.ingame { display: none; }
 #artbar button { font: 600 13px/1 system-ui, sans-serif; color: rgba(255,255,255,.75); background: none; border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
 #artbar button.active { background: #f7f3ea; color: #3a2f2a; }
 #artbar button:focus { outline: none; }
@@ -135,6 +136,7 @@ function remembered() {
 function showArt(art) {
   artButtons.forEach((b) => b.classList.toggle('active', b.dataset.art === art));
 }
+window.addEventListener('herolord-title', (e) => artbar.classList.toggle('ingame', !e.detail));
 window.addEventListener('herolord-art', (e) => { showArt(e.detail); try { localStorage.setItem('art', e.detail); } catch (err) { /* ignore */ } });
 artButtons.forEach((b) => {
   b.onclick = () => { if (window.heroLordSetArt) window.heroLordSetArt(b.dataset.art); canvas.focus(); };

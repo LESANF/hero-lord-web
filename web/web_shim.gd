@@ -107,6 +107,7 @@ var _js_set_art: JavaScriptObject
 var _js_export: JavaScriptObject
 var _js_import: JavaScriptObject
 var _art_pushed := ""
+var _title_pushed := false
 
 # Save transfer between browsers. The game keeps plain JSON under user://
 # (saves/*.json plus the files below); a bundle is just those texts in one JSON.
@@ -181,6 +182,11 @@ func _push_art_state() -> void:
 	if state != _art_pushed:
 		_art_pushed = state
 		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('herolord-art', {detail: '%s'}))" % state)
+	# The page's art pill is for the title screens only; hide it once the game is running.
+	var on_title: bool = game.get("mode") == "title"
+	if on_title != _title_pushed:
+		_title_pushed = on_title
+		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('herolord-title', {detail: %s}))" % ("true" if on_title else "false"))
 
 
 # New game -> "함께할 가디언": the game toggles guardian_picks without a cap, so a third
