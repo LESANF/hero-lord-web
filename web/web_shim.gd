@@ -27,10 +27,32 @@ func _init() -> void:
 
 func _ready() -> void:
 	var timer := Timer.new()
-	timer.wait_time = 1.0
+	timer.wait_time = 0.3
 	timer.timeout.connect(_attach_hints)
+	timer.timeout.connect(_guard_guardians)
 	add_child(timer)
 	timer.start()
+
+
+# New game -> "함께할 가디언": the game toggles guardian_picks without a cap, so a third
+# card can be picked (header shows 3 / 2 and 모험 시작 greys out). Disable the unpicked
+# cards once two are chosen; the game's own touch router skips disabled buttons.
+func _guard_guardians() -> void:
+	if game == null or game.get("menu_page") != "guardians":
+		return
+	for card in game.get("guardian_buttons"):
+		if is_instance_valid(card) and not card.pressed.is_connected(_limit_guardians):
+			card.pressed.connect(_limit_guardians)  # runs after the game's _toggle_guardian
+	_limit_guardians()
+
+
+func _limit_guardians() -> void:
+	var picks: Array = game.get("guardian_picks")
+	var cards: Array = game.get("guardian_buttons")
+	var full: bool = picks.count(true) >= 2
+	for i in mini(picks.size(), cards.size()):
+		if is_instance_valid(cards[i]):
+			cards[i].disabled = full and not picks[i]
 
 
 func _input(event: InputEvent) -> void:

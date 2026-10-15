@@ -42,6 +42,8 @@ Nothing in the game is modified. `web/override.cfg` is packed next to
 - turns on `emulate_touch_from_mouse` (the in-game menus only listen to touch) and keeps the real left click away from the GUI, so every click reaches the game exactly once, through the same router Android uses
 - labels every HUD button with its keyboard key
 - adds `R` for auto-quest, the one HUD action the game left without a key
+- forces Godot's web audio to stream playback (`default_playback_type.web = 0`); the default "sample" mode cannot drive the game's custom buses and effects, which came out as silence
+- caps the new-game guardian pick at two (the game lets a third one through)
 
 | action | keys |
 |---|---|

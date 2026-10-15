@@ -104,6 +104,28 @@ the one binding the game lacks, `hero_auto` = R.
 | menu | Esc | `hero_menu` |
 | auto-quest | R | **shim**, presses `auto_button` |
 
+## Audio: stream playback, not Godot's web "sample" mode
+
+Godot 4.3+ defaults the web platform to `audio/general/default_playback_type.web
+= Sample`, which hands `AudioStreamWAV` sounds to the Web Audio API directly. The
+game builds its own buses in `story_audio.gd` (a `MUSIC_BUS` with
+`AudioEffectReverb`, per-voice buses with `AudioEffectPanner`, `set_bus_send`)
+and in sample mode the output was silent: measured with an `AnalyserNode` tapped
+on `AudioContext.destination`, RMS stayed 0 for both the PCM and the QOA build,
+so the codec was not the cause. `override.cfg` sets `default_playback_type.web =
+0` (Stream): the C++ mixer renders the buses and effects and the driver pushes
+PCM to the browser, as every Godot web game did before 4.3. Sound confirmed by
+ear on the rebuilt page.
+
+## Guardian pick cap
+
+`_toggle_guardian` (`game.gd:4906`) flips `guardian_picks[kind]` with no cap,
+so a third guardian can be picked; `_guardian_texts` then shows `3 / 2` and
+disables 모험 시작 until one is unpicked. The shim connects to each card's
+`pressed` after the game's handler and sets `disabled` on the unpicked cards
+once two are chosen (the router already skips disabled buttons), clearing it
+when a pick is removed or the page is reset.
+
 ## Save data
 
 `user://` → `HeroLordRemaster` custom dir → on web this is IndexedDB
