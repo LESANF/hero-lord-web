@@ -51,6 +51,10 @@ html.inapp #status { right: 0; bottom: 0; }
 #inapp a { flex: none; padding: 8px 12px; border-radius: 8px; background: #ffd56b; color: #2a2118; font-weight: 700; text-decoration: none; }
 #inapp button { flex: none; background: none; border: 0; color: rgba(255,255,255,.7); font-size: 20px; line-height: 1; padding: 4px 6px; }
 
+/* build id, title screens only, faint */
+#ver { position: fixed; left: 10px; bottom: calc(env(safe-area-inset-bottom) + 8px); z-index: 5; display: none; font: 500 11px/1 ui-monospace, Menlo, monospace; color: rgba(255,255,255,.45); text-shadow: 0 1px 2px rgba(0,0,0,.6); pointer-events: none; }
+#ver.show { display: block; }
+
 /* art switch: lives on the page, above the canvas, top centre where the game draws nothing */
 #artbar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); display: none; padding: 3px; border-radius: 999px;
   background: rgba(30, 26, 24, .72); backdrop-filter: blur(6px); box-shadow: 0 2px 8px rgba(0,0,0,.25); touch-action: manipulation; }
@@ -72,6 +76,7 @@ html.inapp #status { right: 0; bottom: 0; }
   <a id="inapp-open" href="#">브라우저로 열기</a>
   <button id="inapp-close" aria-label="닫기">×</button>
 </div>
+<div id="ver"></div>
 <input id="save-file" type="file" accept=".json,application/json" hidden>
 <div id="status">
   <img id="logo" src="img/logo.webp" alt="영웅서기 솔티아의 바람: 리마스터">
@@ -216,7 +221,9 @@ function remembered() {
 function showArt(art) {
   artButtons.forEach((b) => b.classList.toggle('active', b.dataset.art === art));
 }
-window.addEventListener('herolord-title', (e) => artbar.classList.toggle('ingame', !e.detail));
+const ver = document.getElementById('ver');
+ver.textContent = 'web ' + BUILD;
+window.addEventListener('herolord-title', (e) => { artbar.classList.toggle('ingame', !e.detail); ver.classList.toggle('show', e.detail); });
 window.addEventListener('herolord-art', (e) => { showArt(e.detail); try { localStorage.setItem('art', e.detail); } catch (err) { /* ignore */ } });
 artButtons.forEach((b) => {
   b.onclick = () => { if (window.heroLordSetArt) window.heroLordSetArt(b.dataset.art); canvas.focus(); };
