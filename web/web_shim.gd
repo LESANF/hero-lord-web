@@ -60,11 +60,58 @@ func _ready() -> void:
 	if OS.has_feature("web"):
 		# window.heroLordSetArt('original'|'remaster') from the page's toggle
 		_js_set_art = JavaScriptBridge.create_callback(_set_art_from_page)
-		JavaScriptBridge.get_interface("window").heroLordSetArt = _js_set_art
+		_js_export = JavaScriptBridge.create_callback(_export_saves)
+		_js_import = JavaScriptBridge.create_callback(_import_saves)
+		var window := JavaScriptBridge.get_interface("window")
+		window.heroLordSetArt = _js_set_art
+		window.heroLordExportSaves = _js_export
+		window.heroLordImportSaves = _js_import
 
 
 var _js_set_art: JavaScriptObject
+var _js_export: JavaScriptObject
+var _js_import: JavaScriptObject
 var _art_pushed := ""
+
+# Save transfer between browsers. The game keeps plain JSON under user://
+# (saves/*.json plus the files below); a bundle is just those texts in one JSON.
+# JavaScriptBridge callbacks cannot return values, so results go to window.*.
+const USER_FILES := ["options.json", "progress.json", "cutscenes-seen.json"]
+
+
+func _export_saves(_args: Array) -> void:
+	var files := {}
+	for name in USER_FILES:
+		if FileAccess.file_exists("user://" + name):
+			files[name] = FileAccess.get_file_as_string("user://" + name)
+	var dir := DirAccess.open("user://saves")
+	if dir != null:
+		for f in dir.get_files():
+			if f.ends_with(".json"):
+				files["saves/" + f] = FileAccess.get_file_as_string("user://saves/" + f)
+	var bundle := {"game": "HeroLordRemaster", "exported": Time.get_datetime_string_from_system(), "files": files}
+	JavaScriptBridge.get_interface("window").heroLordSaveBundle = JSON.stringify(bundle, "\t")
+
+
+func _import_saves(args: Array) -> void:
+	var window := JavaScriptBridge.get_interface("window")
+	window.heroLordImportResult = -1
+	var parsed: Variant = JSON.parse_string(str(args[0])) if not args.is_empty() else null
+	if not (parsed is Dictionary) or not (parsed.get("files") is Dictionary):
+		return
+	DirAccess.make_dir_recursive_absolute("user://saves")
+	var count := 0
+	for name in parsed.files:
+		var n := str(name)
+		var ok := n in USER_FILES or (n.begins_with("saves/") and n.ends_with(".json") and not "/" in n.trim_prefix("saves/"))
+		if not ok:
+			continue  # only the files the game itself writes, never arbitrary paths
+		var file := FileAccess.open("user://" + n, FileAccess.WRITE)
+		if file != null:
+			file.store_string(str(parsed.files[name]))
+			file.close()
+			count += 1
+	window.heroLordImportResult = count
 
 
 # Same steps as the game's own toggles (_title_art / _story_menu_art), minus the

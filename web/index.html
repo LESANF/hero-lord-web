@@ -33,13 +33,18 @@ body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none
 #artbar button { font: 600 13px/1 system-ui, sans-serif; color: rgba(255,255,255,.75); background: none; border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
 #artbar button.active { background: #f7f3ea; color: #3a2f2a; }
 #artbar button:focus { outline: none; }
+#artbar .sep { width: 1px; margin: 4px 2px; background: rgba(255,255,255,.25); }
 </style>
 </head>
 <body>
 <canvas id="canvas">Your browser does not support the canvas tag.</canvas>
-<div id="artbar" aria-label="그래픽">
+<div id="artbar" aria-label="그래픽과 세이브">
   <button data-art="original">원작 그래픽</button>
   <button data-art="remaster">리마스터</button>
+  <span class="sep"></span>
+  <button id="save-export" title="이 브라우저의 세이브를 JSON 파일로 내려받기">세이브 ↓</button>
+  <button id="save-import" title="JSON 파일의 세이브를 이 브라우저로 가져오기">세이브 ↑</button>
+  <input id="save-file" type="file" accept=".json,application/json" hidden>
 </div>
 <div id="status">
   <h1>영웅서기 · 솔티아의 바람 리마스터</h1>
@@ -122,6 +127,30 @@ window.addEventListener('herolord-art', (e) => { showArt(e.detail); try { localS
 artButtons.forEach((b) => {
   b.onclick = () => { if (window.heroLordSetArt) window.heroLordSetArt(b.dataset.art); canvas.focus(); };
 });
+
+// Save transfer (web ↔ web). The shim exposes heroLordExportSaves/heroLordImportSaves and
+// leaves the result on window.* because JavaScriptBridge callbacks cannot return values.
+document.getElementById('save-export').onclick = () => {
+  if (!window.heroLordExportSaves) return;
+  window.heroLordExportSaves();
+  const blob = new Blob([window.heroLordSaveBundle || '{}'], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `herolord-saves-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  canvas.focus();
+};
+const saveFile = document.getElementById('save-file');
+document.getElementById('save-import').onclick = () => saveFile.click();
+saveFile.onchange = async () => {
+  const file = saveFile.files[0];
+  if (!file || !window.heroLordImportSaves) return;
+  window.heroLordImportSaves(await file.text());
+  const n = window.heroLordImportResult;
+  if (n > 0) { setTimeout(() => location.reload(), 1200); }   // let IDBFS sync, then the title lists them
+  else alert('세이브 파일 형식이 아닙니다.');
+};
 
 const missing = Engine.getMissingFeatures({ threads: false });
 if (missing.length) {
