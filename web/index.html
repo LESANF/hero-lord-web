@@ -37,24 +37,6 @@ body { background: #0b1326; color: #3a2f2a; overflow: hidden; touch-action: none
 #status small { font-size: 13px; letter-spacing: .06em; opacity: .8; min-height: 1.2em; }
 #status pre { margin: 0; white-space: pre-wrap; color: #ffb3b3; font-size: 13px; }
 
-/* in-app browser notice (Threads/Instagram/KakaoTalk...): their sheet gestures eat drags */
-#inapp { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: none; align-items: center; gap: 10px;
-  padding: calc(env(safe-area-inset-top) + 10px) 12px 10px 14px; background: rgba(20, 16, 14, .92); color: #fff;
-  font: 500 13px/1.35 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
-#inapp.show { display: flex; }
-/* in-app scroll guard: the page scrolls a little, the game stays fixed on screen */
-html.inapp { height: 100%; }
-html.inapp, html.inapp body { overflow: visible; }
-html.inapp #canvas, html.inapp #status { position: fixed !important; top: 0 !important; left: 0 !important; }
-html.inapp #status { right: 0; bottom: 0; }
-#inapp span { flex: 1; }
-#inapp a { flex: none; padding: 8px 12px; border-radius: 8px; background: #ffd56b; color: #2a2118; font-weight: 700; text-decoration: none; }
-#inapp button { flex: none; background: none; border: 0; color: rgba(255,255,255,.7); font-size: 20px; line-height: 1; padding: 4px 6px; }
-
-/* build id, title screens only, faint */
-#ver { position: fixed; left: 10px; bottom: calc(env(safe-area-inset-bottom) + 8px); z-index: 5; display: none; font: 500 11px/1 ui-monospace, Menlo, monospace; color: rgba(255,255,255,.45); text-shadow: 0 1px 2px rgba(0,0,0,.6); pointer-events: none; }
-#ver.show { display: block; }
-
 /* art switch: lives on the page, above the canvas, top centre where the game draws nothing */
 #artbar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); display: none; padding: 3px; border-radius: 999px;
   background: rgba(30, 26, 24, .72); backdrop-filter: blur(6px); box-shadow: 0 2px 8px rgba(0,0,0,.25); touch-action: manipulation; }
@@ -71,12 +53,6 @@ html.inapp #status { right: 0; bottom: 0; }
   <button data-art="original">원작 그래픽</button>
   <button data-art="remaster">리마스터</button>
 </div>
-<div id="inapp" role="alert">
-  <span>이동이 안 되면 브라우저에서 열어 주세요.</span>
-  <a id="inapp-open" href="#">브라우저로 열기</a>
-  <button id="inapp-close" aria-label="닫기">×</button>
-</div>
-<div id="ver"></div>
 <input id="save-file" type="file" accept=".json,application/json" hidden>
 <div id="status">
   <img id="logo" src="img/logo.webp" alt="영웅서기 솔티아의 바람: 리마스터">
@@ -92,60 +68,6 @@ html.inapp #status { right: 0; bottom: 0; }
 const PACK = 'hero-lord.pck';
 const PARTS = __PARTS__;
 const WASM_SIZE = __WASM_SIZE__;
-const BUILD = '__BUILD__';            // first 8 hex of the PCK's sha256, also in the part names
-console.log('hero-lord-web build', BUILD);
-
-// In-app browsers (Threads, Instagram, Facebook, KakaoTalk, Naver, Line...) show the page in a
-// sheet. When the page is scrolled to the very top, the sheet takes a downward drag as "close"
-// and the game only gets touchcancel, so the joystick never moves. Two layers:
-//  1. Keep the document scrolled a little (canvas fixed on top) so the sheet sees content that
-//     can scroll and leaves the drag to the page; the game already preventDefaults touchmove.
-//  2. A banner offering the real browser: Chrome if installed (iOS: googlechromes://), else the
-//     system browser (Android intent without a package, KakaoTalk openExternal), else copy link.
-(() => {
-  const ua = navigator.userAgent;
-  if (!/Barcelona|Instagram|FBAN|FBAV|KAKAOTALK|NAVER\(inapp|Line\/|DaumApps|everytimeApp/i.test(ua)) return;
-  const ios = /iPhone|iPad|iPod/i.test(ua);
-  const android = /Android/i.test(ua);
-  const url = location.href;
-  const bare = url.replace(/^https?:\/\//, '');
-
-  // 1. scroll guard
-  const PAD = 120;
-  document.documentElement.classList.add('inapp');
-  document.body.style.height = `calc(100% + ${PAD}px)`;
-  const keep = () => { if (Math.abs(window.scrollY - PAD) > 1) window.scrollTo(0, PAD); };
-  window.addEventListener('scroll', keep, { passive: true });
-  window.addEventListener('resize', keep);
-  requestAnimationFrame(keep);
-
-  // 2. banner
-  const bar = document.getElementById('inapp');
-  const open = document.getElementById('inapp-open');
-  const say = (t) => { bar.querySelector('span').textContent = t; };
-  const copy = () => {
-    const done = () => say('링크를 복사했어요. 크롬이나 사파리 주소창에 붙여넣어 주세요. (오른쪽 위 ⋯ → 외부 브라우저로 열기도 돼요)');
-    if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, done); else done();
-  };
-  if (/KAKAOTALK/i.test(ua)) {
-    open.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
-  } else if (android) {
-    // no package: Android hands it to the user's default browser (Chrome, Samsung Internet...)
-    open.href = 'intent://' + bare + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
-  } else if (ios) {
-    open.href = (url.startsWith('https') ? 'googlechromes://' : 'googlechrome://') + bare;
-    open.addEventListener('click', () => {
-      // If Chrome is not installed nothing happens and the page stays visible: fall back.
-      const t0 = Date.now();
-      setTimeout(() => { if (document.visibilityState === 'visible' && Date.now() - t0 < 2500) copy(); }, 1500);
-    });
-  } else {
-    open.href = url;
-  }
-  open.textContent = '크롬으로 열기';
-  document.getElementById('inapp-close').onclick = () => bar.classList.remove('show');
-  bar.classList.add('show');
-})();
 
 // Phones report devicePixelRatio 2.6-3.5, so Godot would render ~9x the pixels of a
 // 1x canvas every frame. It is pixel art: render at most 1.5x and let CSS upscale crisp.
@@ -184,13 +106,6 @@ async function fetchParts(parts) {
     const offset = base;
     base += size;
     return fetch(name).then(async (res) => {
-      if (res.status === 404) {
-        // A newer build replaced the parts while this index.html was still cached (Pages
-        // caches for 10 min). Reload once with a cache-busting query to get the new page.
-        let bounced = false;
-        try { bounced = sessionStorage.getItem('bounced') === BUILD; sessionStorage.setItem('bounced', BUILD); } catch (e) { /* ignore */ }
-        if (!bounced) { location.replace(`${location.pathname}?v=${Date.now()}${location.hash}`); return new Promise(() => {}); }
-      }
       if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
       const reader = res.body.getReader();
       let got = 0;
@@ -221,9 +136,7 @@ function remembered() {
 function showArt(art) {
   artButtons.forEach((b) => b.classList.toggle('active', b.dataset.art === art));
 }
-const ver = document.getElementById('ver');
-ver.textContent = 'web ' + BUILD;
-window.addEventListener('herolord-title', (e) => { artbar.classList.toggle('ingame', !e.detail); ver.classList.toggle('show', e.detail); });
+window.addEventListener('herolord-title', (e) => artbar.classList.toggle('ingame', !e.detail));
 window.addEventListener('herolord-art', (e) => { showArt(e.detail); try { localStorage.setItem('art', e.detail); } catch (err) { /* ignore */ } });
 artButtons.forEach((b) => {
   b.onclick = () => { if (window.heroLordSetArt) window.heroLordSetArt(b.dataset.art); canvas.focus(); };
@@ -253,10 +166,7 @@ if (missing.length) {
       detail.textContent = '시작하는 중';
       return engine.start({ args: ['--main-pack', PACK, '--', `art=${art}`] });
     })
-    .then(() => {
-      status.classList.add('done'); setTimeout(() => status.remove(), 700); artbar.classList.add('show');
-      setTimeout(() => document.getElementById('inapp').classList.remove('show'), 10000);   // don't sit on the HUD's 메뉴 key
-    }, fail);
+    .then(() => { status.classList.add('done'); setTimeout(() => status.remove(), 700); artbar.classList.add('show'); }, fail);
 }
 </script>
 </body>
