@@ -87,6 +87,16 @@ Nothing in the game is modified. `web/override.cfg` is packed next to
 
 ![In-game HUD with key hints](docs/img/ingame-hints.jpg)
 
+## 세이브 옮기기
+
+Saves are plain JSON under the game's `user://` (`saves/*.json`, `options.json`,
+`progress.json`, `cutscenes-seen.json`), which on the web lives in the browser's
+IndexedDB (`/userfs/HeroLordRemaster/…`). The pill at the top of the page has
+**세이브 ↓** (download everything as one JSON file) and **세이브 ↑** (pick that
+file in another browser; the page reloads and the title's 이어하기 lists them).
+Browser ↔ browser only: the Android app keeps its saves in app-private storage
+with `allowBackup=false`, so nothing can be pulled from or pushed to it.
+
 ## Build it yourself
 
 ```sh
