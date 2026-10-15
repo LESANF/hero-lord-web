@@ -5,8 +5,6 @@
 > **〈영웅서기 솔티아의 바람: 리마스터〉는 [Nimdal (@0xnimdal)](https://www.threads.com/@0xnimdal) 님이 혼자 만든 안드로이드 앱입니다.**
 > 이 저장소는 그 앱을 **브라우저에서 돌아가게 옮긴 것**일 뿐, 게임 자체(그래픽·사운드·스크립트·데이터·기획)에는 아무것도 보태지 않았습니다.
 > 원작 소개 글: https://www.threads.com/@0xnimdal/post/Dees5ciFBve
->
-> 게임에 대한 저작권은 전부 원작자와 원작 〈영웅서기〉 IP 권리자에게 있습니다. 이 저장소의 기여자는 게임에 대해 어떤 권리도 주장하지 않으며, 원작자가 원하면 즉시 내립니다. 여기서 MIT로 공개하는 것은 포팅 도구와 문서뿐입니다.
 
 **This is a browser port of 영웅서기: 솔티아의 바람 Remaster, a fan remaster made entirely by [Nimdal (@0xnimdal)](https://www.threads.com/@0xnimdal).** Nothing of the game was created here; only the tooling that runs the shipped Android build in a browser.
 
