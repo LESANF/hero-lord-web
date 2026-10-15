@@ -34,6 +34,9 @@ body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none
 #artbar button.active { background: #f7f3ea; color: #3a2f2a; }
 #artbar button:focus { outline: none; }
 #artbar .sep { width: 1px; margin: 4px 2px; background: rgba(255,255,255,.25); }
+#vol { display: flex; align-items: center; gap: 6px; padding: 0 10px; font: 600 13px/1 system-ui, sans-serif; color: rgba(255,255,255,.85); }
+#vol input { width: 80px; accent-color: #f7f3ea; margin: 0; }
+#vol b { width: 1.4em; text-align: right; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -41,6 +44,8 @@ body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none
 <div id="artbar" aria-label="그래픽과 세이브">
   <button data-art="original">원작 그래픽</button>
   <button data-art="remaster">리마스터</button>
+  <span class="sep"></span>
+  <label id="vol" title="볼륨 (게임의 사운드 설정과 같음)">🔊 <input id="volume" type="range" min="0" max="10" step="1" value="5"> <b id="volume-value">5</b></label>
   <span class="sep"></span>
   <button id="save-export" title="이 브라우저의 세이브를 JSON 파일로 내려받기">세이브 ↓</button>
   <button id="save-import" title="JSON 파일의 세이브를 이 브라우저로 가져오기">세이브 ↑</button>
@@ -127,6 +132,13 @@ window.addEventListener('herolord-art', (e) => { showArt(e.detail); try { localS
 artButtons.forEach((b) => {
   b.onclick = () => { if (window.heroLordSetArt) window.heroLordSetArt(b.dataset.art); canvas.focus(); };
 });
+
+// Volume: the game's own 사운드 setting (0..10), reachable from any screen here.
+const volume = document.getElementById('volume');
+const volumeValue = document.getElementById('volume-value');
+volume.oninput = () => { volumeValue.textContent = volume.value; if (window.heroLordSetVolume) window.heroLordSetVolume(Number(volume.value)); };
+volume.onchange = () => canvas.focus();
+window.addEventListener('herolord-volume', (e) => { volume.value = e.detail; volumeValue.textContent = e.detail; });
 
 // Save transfer (web ↔ web). The shim exposes heroLordExportSaves/heroLordImportSaves and
 // leaves the result on window.* because JavaScriptBridge callbacks cannot return values.
