@@ -6,7 +6,25 @@ Android APK) running in the browser.
 - GitHub Pages: https://lesanf.github.io/hero-lord-web/
 - Vercel: deployed from `main` by the Vercel Git integration (`vercel.json`)
 
-![Title screen in Chrome](docs/img/title-chrome.jpg)
+## 원작 그래픽 / 리마스터 그래픽
+
+The game ships both art sets. The page asks which one before it starts; the
+choice is remembered, and the game's own 환경설정 switches at any time.
+
+| 원작 그래픽 (2005, KTF) | 리마스터 그래픽 |
+|---|---|
+| ![original](docs/img/ingame-original.jpg) | ![remaster](docs/img/ingame-remaster.jpg) |
+| ![original title](docs/img/title-original.jpg) | ![remaster title](docs/img/title-chrome.jpg) |
+
+Deep links: [`?art=original`](https://lesanf.github.io/hero-lord-web/?art=original) ·
+[`?art=remaster`](https://lesanf.github.io/hero-lord-web/?art=remaster).
+
+### 게임 안에서 고를 수 있는 길
+
+| | |
+|---|---|
+| ![title menu](docs/img/title-menu.jpg) 타이틀: 새로하기 · 보스 러시(잠김) · 환경설정 · 도움말 | ![settings](docs/img/settings.jpg) 환경설정: 사운드 · 게임속도 · 대화속도 · 시선이동 · **그래픽** · 세부 설정 · 오류 보고 |
+| ![hero select](docs/img/hero-select.jpg) 새로하기 → 영웅 선택 (제 1 장은 이안, 나머지는 잠김) | ![guardians](docs/img/guardians.jpg) 함께할 가디언 2명 선택 → 모험 시작 (셋째는 잠김) |
 
 ## How it works
 
@@ -30,9 +48,10 @@ official Godot 4.6 web template (godot.wasm, nothreads) + web/index.html ─▶ 
 | assemble | `tools/build_web.py` | pulls the 9.5 MB web template out of the 1.25 GB official tpz with HTTP range requests (sha256 pinned), splits the PCK, writes `index.html` |
 | all of it | `./build.sh game.apk` | ~25 s on a laptop; the site is 157 MB of game data + 38 MB of engine |
 
-`web/index.html` fetches the parts in parallel into one buffer, hands it to the
-engine with `preloadFile`, and starts with `--main-pack`. Single-threaded
-template, so no COOP/COEP headers are needed and any static host works.
+`web/index.html` starts downloading the parts immediately, shows the two art
+cards while that runs, then hands the buffer to the engine with `preloadFile`
+and starts it with `--main-pack … -- art=<choice>`. Single-threaded template, so
+no COOP/COEP headers are needed and any static host works.
 
 ## Web-only shim
 
@@ -44,6 +63,7 @@ Nothing in the game is modified. `web/override.cfg` is packed next to
 - adds `R` for auto-quest, the one HUD action the game left without a key
 - forces Godot's web audio to stream playback (`default_playback_type.web = 0`); the default "sample" mode cannot drive the game's custom buses and effects, which came out as silence
 - caps the new-game guardian pick at two (the game lets a third one through)
+- writes the landing-page art choice (`art=original|remaster` user arg) into `user://options.json` as `new_art` before the game reads its options
 
 | action | keys |
 |---|---|

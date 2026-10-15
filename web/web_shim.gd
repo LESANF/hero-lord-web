@@ -18,11 +18,35 @@ func _init() -> void:
 	# A mouse-only browser would never produce InputEventScreenTouch otherwise.
 	Input.set_emulate_touch_from_mouse(true)
 	print("WebShim: emulate_touch_from_mouse=", Input.is_emulating_touch_from_mouse())
+	_apply_art_choice()
 	if not InputMap.has_action("hero_auto"):
 		InputMap.add_action("hero_auto")
 		var key := InputEventKey.new()
 		key.physical_keycode = KEY_R
 		InputMap.action_add_event("hero_auto", key)
+
+
+# The landing page passes `art=original` or `art=remaster` after `--`. The game reads
+# user://options.json in _load_options() (new_art, default true), so write the choice
+# there before the main scene exists; every other key keeps its saved or default value.
+func _apply_art_choice() -> void:
+	var want := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg == "art=original":
+			want = "false"
+		elif arg == "art=remaster":
+			want = "true"
+	if want == "":
+		return
+	var path := "user://options.json"
+	var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(path)) if FileAccess.file_exists(path) else null
+	var options: Dictionary = saved if saved is Dictionary else {}
+	options["new_art"] = want == "true"
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify(options, "\t") + "\n")
+		file.close()
+	print("WebShim: new_art=", options["new_art"])
 
 
 func _ready() -> void:
