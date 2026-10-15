@@ -103,9 +103,6 @@ def main(out: str, local_template: str | None = None) -> None:
         for name in RUNTIME_FILES:
             (out_dir / name).write_bytes(z.read(name))
     parts = split_pack(out_dir)
-    for img in (ROOT / "web" / "img").glob("*"):
-        (out_dir / "img").mkdir(exist_ok=True)
-        (out_dir / "img" / img.name).write_bytes(img.read_bytes())
     html = (ROOT / "web" / "index.html").read_text()
     html = html.replace("__PARTS__", json.dumps(parts)).replace("__WASM_SIZE__", str((out_dir / "godot.wasm").stat().st_size))
     (out_dir / "index.html").write_text(html)

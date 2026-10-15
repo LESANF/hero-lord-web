@@ -11,31 +11,30 @@ html, body, #canvas { margin: 0; padding: 0; border: 0; }
 body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none; font-family: system-ui, sans-serif; }
 #canvas { display: block; }
 #canvas:focus { outline: none; }
-#status { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; background: #f7f3ea; padding: 16px; box-sizing: border-box; overflow: auto; }
+#status { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; background: #f7f3ea; }
 #status h1 { font-size: 20px; font-weight: 600; margin: 0; }
-#choices { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
-.card { width: min(44vw, 360px); border: 2px solid #d9d0c0; border-radius: 10px; background: #fff; padding: 0 0 10px; cursor: pointer; text-align: left; font: inherit; color: inherit; }
-.card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px 8px 0 0; background: #e8e2d6; }
-.card b { display: block; margin: 10px 12px 2px; font-size: 16px; }
-.card small { display: block; margin: 0 12px; opacity: .65; }
-.card.selected { border-color: #9b3943; }
-.card:disabled { opacity: .5; cursor: default; }
 #status progress { width: min(60vw, 420px); }
-#status small.detail { opacity: .6; }
+#status small { opacity: .6; }
 #status pre { margin: 0 16px; white-space: pre-wrap; color: #9b3943; }
+/* art switch: lives on the page, above the canvas, top centre where the game draws nothing */
+#artbar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); display: none; gap: 0; padding: 3px; border-radius: 999px;
+  background: rgba(30, 26, 24, .72); backdrop-filter: blur(6px); box-shadow: 0 2px 8px rgba(0,0,0,.25); touch-action: manipulation; }
+#artbar.show { display: flex; }
+#artbar button { font: 600 13px/1 system-ui, sans-serif; color: rgba(255,255,255,.75); background: none; border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+#artbar button.active { background: #f7f3ea; color: #3a2f2a; }
+#artbar button:focus { outline: none; }
 </style>
 </head>
 <body>
 <canvas id="canvas">Your browser does not support the canvas tag.</canvas>
+<div id="artbar" aria-label="그래픽">
+  <button data-art="original">원작 그래픽</button>
+  <button data-art="remaster">리마스터</button>
+</div>
 <div id="status">
   <h1>영웅서기 · 솔티아의 바람 리마스터</h1>
-  <div id="choices">
-    <button class="card" data-art="original"><img src="img/original.jpg" alt=""><b>원작 그래픽</b><small>2005년 원작 픽셀 그대로</small></button>
-    <button class="card" data-art="remaster"><img src="img/remaster.jpg" alt=""><b>리마스터 그래픽</b><small>새로 그린 고해상도 픽셀</small></button>
-  </div>
-  <small class="detail">그래픽은 게임 안 환경설정에서 언제든 바꿀 수 있습니다. 고르면 바로 시작합니다.</small>
   <progress id="progress"></progress>
-  <small class="detail" id="detail"></small>
+  <small id="detail"></small>
   <pre id="notice"></pre>
 </div>
 <script src="godot.js"></script>
@@ -55,11 +54,13 @@ const engine = new Engine({
   serviceWorker: false,
   fileSizes: { 'godot.wasm': WASM_SIZE },
 });
+const canvas = document.getElementById('canvas');
 const status = document.getElementById('status');
 const progress = document.getElementById('progress');
 const detail = document.getElementById('detail');
 const notice = document.getElementById('notice');
-const cards = [...document.querySelectorAll('.card')];
+const artbar = document.getElementById('artbar');
+const artButtons = [...artbar.querySelectorAll('button')];
 
 function fail(err) {
   console.error(err);
@@ -95,32 +96,36 @@ async function fetchParts(parts) {
   return all.buffer;
 }
 
-// The choice goes to the game as a user arg (after `--`); web/web_shim.gd writes it
-// into user://options.json (new_art) before the game reads its options.
-function start(art) {
-  try { localStorage.setItem('art', art); } catch (e) { /* private mode etc. */ }
-  cards.forEach((c) => { c.disabled = true; c.classList.toggle('selected', c.dataset.art === art); });
-  ready
+// Art choice: remembered per browser (first visit: 원작), ?art=original|remaster overrides.
+// It reaches the game twice: as a user arg at start (web_shim.gd writes new_art into
+// user://options.json before the game reads it) and live through window.heroLordSetArt,
+// which the shim exposes; the shim fires 'herolord-art' whenever the game's state changes.
+function remembered() {
+  const q = new URLSearchParams(location.search).get('art');
+  if (q === 'original' || q === 'remaster') return q;
+  try { return localStorage.getItem('art') || 'original'; } catch (e) { return 'original'; }
+}
+function showArt(art) {
+  artButtons.forEach((b) => b.classList.toggle('active', b.dataset.art === art));
+}
+window.addEventListener('herolord-art', (e) => { showArt(e.detail); try { localStorage.setItem('art', e.detail); } catch (err) { /* ignore */ } });
+artButtons.forEach((b) => {
+  b.onclick = () => { if (window.heroLordSetArt) window.heroLordSetArt(b.dataset.art); canvas.focus(); };
+});
+
+const missing = Engine.getMissingFeatures({ threads: false });
+if (missing.length) {
+  fail('This browser is missing:\n' + missing.join('\n'));
+} else {
+  const art = remembered();
+  showArt(art);
+  Promise.all([engine.init('godot'), fetchParts(PARTS)])
     .then(([, pack]) => {
       engine.preloadFile(pack, PACK);
       detail.textContent = '';
       return engine.start({ args: ['--main-pack', PACK, '--', `art=${art}`] });
     })
-    .then(() => status.remove(), fail);
-}
-
-const missing = Engine.getMissingFeatures({ threads: false });
-let ready;
-if (missing.length) {
-  fail('This browser is missing:\n' + missing.join('\n'));
-} else {
-  ready = Promise.all([engine.init('godot'), fetchParts(PARTS)]);   // download while the player decides
-  ready.catch(fail);
-  let last = 'original';
-  try { last = localStorage.getItem('art') || last; } catch (e) { /* ignore */ }
-  cards.forEach((c) => { c.classList.toggle('selected', c.dataset.art === last); c.onclick = () => start(c.dataset.art); });
-  const wanted = new URLSearchParams(location.search).get('art');   // ?art=original|remaster skips the question
-  if (wanted === 'original' || wanted === 'remaster') start(wanted);
+    .then(() => { status.remove(); artbar.classList.add('show'); }, fail);
 }
 </script>
 </body>

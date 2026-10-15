@@ -54,8 +54,49 @@ func _ready() -> void:
 	timer.wait_time = 0.3
 	timer.timeout.connect(_attach_hints)
 	timer.timeout.connect(_guard_guardians)
+	timer.timeout.connect(_push_art_state)
 	add_child(timer)
 	timer.start()
+	if OS.has_feature("web"):
+		# window.heroLordSetArt('original'|'remaster') from the page's toggle
+		_js_set_art = JavaScriptBridge.create_callback(_set_art_from_page)
+		JavaScriptBridge.get_interface("window").heroLordSetArt = _js_set_art
+
+
+var _js_set_art: JavaScriptObject
+var _art_pushed := ""
+
+
+# Same steps as the game's own toggles (_title_art / _story_menu_art), minus the
+# screen-specific refresh, so it works from any screen.
+func _set_art_from_page(args: Array) -> void:
+	if game == null or args.is_empty():
+		return
+	var want: bool = str(args[0]) == "remaster"
+	var world: Node = game.get("world")
+	if world == null or bool(world.get("modern_art_enabled")) == want:
+		return
+	world.call("set_modern_art_enabled", want)
+	var options: Dictionary = game.get("options")
+	options["new_art"] = want
+	game.call("_save_options")
+	game.call("_apply_art_choice")
+	game.call("_layout")
+	if game.get("menu_page") == "options":
+		game.call("_show_options")
+
+
+# Keep the page's toggle in sync when the art is changed inside the game.
+func _push_art_state() -> void:
+	if game == null or not OS.has_feature("web"):
+		return
+	var world: Node = game.get("world")
+	if world == null:
+		return
+	var state := "remaster" if bool(world.get("modern_art_enabled")) else "original"
+	if state != _art_pushed:
+		_art_pushed = state
+		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('herolord-art', {detail: '%s'}))" % state)
 
 
 # New game -> "함께할 가디언": the game toggles guardian_picks without a cap, so a third
