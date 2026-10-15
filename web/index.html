@@ -15,6 +15,7 @@ body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none
 #status h1 { font-size: 20px; font-weight: 600; margin: 0; }
 #status progress { width: min(60vw, 420px); }
 #status small { opacity: .6; }
+#status small a { color: inherit; }
 #status pre { margin: 0 16px; white-space: pre-wrap; color: #9b3943; }
 /* art switch: lives on the page, above the canvas, top centre where the game draws nothing */
 #artbar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); display: none; gap: 0; padding: 3px; border-radius: 999px;
@@ -33,6 +34,7 @@ body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none
 </div>
 <div id="status">
   <h1>영웅서기 · 솔티아의 바람 리마스터</h1>
+  <small>원작: <a href="https://www.threads.com/@0xnimdal" target="_blank" rel="noopener">Nimdal (@0xnimdal)</a> 님의 안드로이드 앱을 브라우저로 옮긴 것입니다</small>
   <progress id="progress"></progress>
   <small id="detail"></small>
   <pre id="notice"></pre>
