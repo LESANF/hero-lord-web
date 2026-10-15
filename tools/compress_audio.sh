@@ -27,4 +27,4 @@ if [ -z "${GODOT:-}" ]; then
     chmod +x "$GODOT"
   fi
 fi
-"$GODOT" --headless --script tools/compress_audio.gd -- "$DIR/.godot/imported" 2>&1 | grep -v '^Godot Engine v'
+"$GODOT" --headless --script tools/compress_audio.gd -- "$DIR/.godot/imported" 2>&1 | { grep -v '^Godot Engine v' || true; }
