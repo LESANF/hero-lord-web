@@ -97,6 +97,10 @@ one. No editor project, no Node.
 
 ## Deploy
 
+Visitors: Cloudflare Web Analytics in JS-snippet mode (no cookies, no proxying;
+the beacon token in `web/index.html` is public by design). Dashboard under the
+Cloudflare account's Analytics & Logs → Web Analytics → `lesanf.github.io`.
+
 `.github/workflows/pages.yml` downloads the APK from the `apk-r24` release, runs
 `build.sh` and deploys `build/web/` to GitHub Pages. Each push to `main`
 replaces the site; there is no second host and no preview deployments.
