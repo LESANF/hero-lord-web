@@ -25,9 +25,10 @@ official Godot 4.6 web template (godot.wasm, nothreads) + web/index.html ─▶ 
 |---|---|---|
 | inventory | `tools/inventory.py` | what is in the APK, no extraction |
 | extract | `tools/extract_project.py` | `assets/` → `build/project/`, drops Android-only files |
+| shrink | `tools/minify_json.py`, `tools/compress_audio.sh` | JSON whitespace (19 → 10 MB) and PCM → QOA audio inside the same `AudioStreamWAV` resources (80 → 16 MB, done by the Godot 4.6 binary itself, headless) |
 | pack | `tools/pack_pck.py` | PCK v2 writer, stdlib only, `tools/test_pack_pck.py` round-trips it |
 | assemble | `tools/build_web.py` | pulls the 9.5 MB web template out of the 1.25 GB official tpz with HTTP range requests (sha256 pinned), splits the PCK, writes `index.html` |
-| all of it | `./build.sh game.apk` | ~20 s on a laptop |
+| all of it | `./build.sh game.apk` | ~25 s on a laptop; the site is 157 MB of game data + 38 MB of engine |
 
 `web/index.html` fetches the parts in parallel into one buffer, hands it to the
 engine with `preloadFile`, and starts with `--main-pack`. Single-threaded
@@ -38,7 +39,7 @@ template, so no COOP/COEP headers are needed and any static host works.
 Nothing in the game is modified. `web/override.cfg` is packed next to
 `project.binary` and registers one autoload, `web/web_shim.gd`, which:
 
-- turns on `emulate_touch_from_mouse` (the in-game menus only listen to touch)
+- turns on `emulate_touch_from_mouse` (the in-game menus only listen to touch) and keeps the real left click away from the GUI, so every click reaches the game exactly once, through the same router Android uses
 - labels every HUD button with its keyboard key
 - adds `R` for auto-quest, the one HUD action the game left without a key
 
@@ -64,7 +65,9 @@ Nothing in the game is modified. `web/override.cfg` is packed next to
 python3 -m http.server -d build/web 8765                 # http://127.0.0.1:8765/
 ```
 
-Requirements: Python 3.8+ and `curl` (for CI). No Godot editor, no Node.
+Requirements: Python 3.8+ and `curl`. The audio step downloads the official
+Godot 4.6 binary into `build/godot/` (sha256 pinned) unless `GODOT=` points at
+one. No editor project, no Node.
 
 ## Docs
 

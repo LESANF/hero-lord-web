@@ -10,6 +10,8 @@ TEMPLATE=${2:-}
 rm -rf build/project build/web
 mkdir -p build/web
 python3 -I tools/extract_project.py "$APK" build/project
+python3 -I tools/minify_json.py build/project/assets
+sh tools/compress_audio.sh build/project
 cp web/override.cfg web/web_shim.gd build/project/
 python3 -I tools/pack_pck.py build/project build/web/hero-lord.pck 4.6.0
 python3 -I tools/build_web.py build/web $TEMPLATE
