@@ -33,6 +33,17 @@ func _ready() -> void:
 	timer.start()
 
 
+func _input(event: InputEvent) -> void:
+	# One input path, like Android. Every left click already arrives a second time as an
+	# emulated touch that the game's own router handles; if the real mouse event also reached
+	# the GUI, a Button would fire twice (the dialogue "빨리 ▶▶" toggle cancelled itself and
+	# "다음" advanced two lines per click). Scene nodes' _input (virtual joystick, title) have
+	# already seen this event by the time an autoload gets it, so only the GUI stage is cut.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
+			and event.device != InputEvent.DEVICE_ID_EMULATION:
+		get_viewport().set_input_as_handled()
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed("hero_auto") and not event.is_echo() and game != null:
 		var button: Button = game.get("auto_button")

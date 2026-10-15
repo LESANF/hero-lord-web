@@ -64,10 +64,17 @@ Emulated touches carry `DEVICE_ID_EMULATION`, exactly the case the game's
 title handler already distinguishes. It also turns off
 `debug/file_logging` (IDBFS writes with no reader).
 
-Known ceiling: handlers that accept both kinds now see a real mouse release
-*and* an emulated touch release. On the title "press" screen that means
-`_show_title()` runs twice (idempotent, plays the page sound twice). Fix by
-patching those few handlers if it ever matters.
+The double path bit immediately: the dialogue's `빨리 ▶▶` is a plain `Button`
+connected to `_toggle_fast_forward` (`game.gd:1653`). A left click reached it
+twice, once through the GUI (real mouse event) and once through the game's
+touch router (`game.gd:4335`, emulated touch), so the toggle cancelled itself;
+`다음` advanced two lines per click for the same reason (`_dialogue_clicked`
+on the panel plus the router's fallback). Buttons never see GUI input on
+Android (`BaseButton` only reacts to mouse events, and there are none there),
+so the shim's `_input` marks every real left `InputEventMouseButton` as handled.
+Scene nodes' `_input` (virtual joystick, which explicitly skips emulated events,
+and the title press screen) run before an autoload's, so they still get the
+mouse; only the GUI stage is cut. Wheel and right/middle buttons pass through.
 
 Not done, deliberately:
 
