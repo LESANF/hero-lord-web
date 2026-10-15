@@ -87,6 +87,8 @@ html.inapp #status { right: 0; bottom: 0; }
 const PACK = 'hero-lord.pck';
 const PARTS = __PARTS__;
 const WASM_SIZE = __WASM_SIZE__;
+const BUILD = '__BUILD__';            // first 8 hex of the PCK's sha256, also in the part names
+console.log('hero-lord-web build', BUILD);
 
 // In-app browsers (Threads, Instagram, Facebook, KakaoTalk, Naver, Line...) show the page in a
 // sheet. When the page is scrolled to the very top, the sheet takes a downward drag as "close"
@@ -177,6 +179,13 @@ async function fetchParts(parts) {
     const offset = base;
     base += size;
     return fetch(name).then(async (res) => {
+      if (res.status === 404) {
+        // A newer build replaced the parts while this index.html was still cached (Pages
+        // caches for 10 min). Reload once with a cache-busting query to get the new page.
+        let bounced = false;
+        try { bounced = sessionStorage.getItem('bounced') === BUILD; sessionStorage.setItem('bounced', BUILD); } catch (e) { /* ignore */ }
+        if (!bounced) { location.replace(`${location.pathname}?v=${Date.now()}${location.hash}`); return new Promise(() => {}); }
+      }
       if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
       const reader = res.body.getReader();
       let got = 0;
