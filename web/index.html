@@ -18,43 +18,45 @@
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "2f29d6c2a87043008cde29afc3cd84d4"}'></script>
 <style>
 html, body, #canvas { margin: 0; padding: 0; border: 0; }
-body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none; font-family: system-ui, sans-serif; }
+body { background: #0b1326; color: #3a2f2a; overflow: hidden; touch-action: none; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
 #canvas { display: block; }
 #canvas:focus { outline: none; }
-#status { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; background: #f7f3ea; }
-#status h1 { font-size: 20px; font-weight: 600; margin: 0; }
-#status progress { width: min(60vw, 420px); }
-#status small { opacity: .6; }
-#status pre { margin: 0 16px; white-space: pre-wrap; color: #9b3943; }
+
+/* loading screen */
+#status { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 14px;
+  padding: 0 24px 9vh; box-sizing: border-box; color: #fff; text-align: center;
+  background: #0b1326 url(img/loading.jpg) center / cover no-repeat; transition: opacity .6s ease; }
+#status::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,14,30,0) 45%, rgba(8,14,30,.78) 100%); pointer-events: none; }
+#status > * { position: relative; }
+#status.done { opacity: 0; pointer-events: none; }
+#logo { width: min(58vw, 520px); height: auto; margin-bottom: 6px; image-rendering: auto; filter: drop-shadow(0 6px 22px rgba(0,0,0,.55)); }
+#bar { width: min(72vw, 460px); height: 6px; border-radius: 999px; background: rgba(255,255,255,.18); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+#fill { height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #ffd56b, #fff4c2 60%, #ffffff); box-shadow: 0 0 14px rgba(255,214,110,.85); transition: width .15s linear; position: relative; }
+#fill::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation: sheen 1.6s linear infinite; }
+@keyframes sheen { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+#status small { font-size: 13px; letter-spacing: .06em; opacity: .8; min-height: 1.2em; }
+#status pre { margin: 0; white-space: pre-wrap; color: #ffb3b3; font-size: 13px; }
+
 /* art switch: lives on the page, above the canvas, top centre where the game draws nothing */
-#artbar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); display: none; gap: 0; padding: 3px; border-radius: 999px;
+#artbar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); display: none; padding: 3px; border-radius: 999px;
   background: rgba(30, 26, 24, .72); backdrop-filter: blur(6px); box-shadow: 0 2px 8px rgba(0,0,0,.25); touch-action: manipulation; }
 #artbar.show { display: flex; }
 #artbar button { font: 600 13px/1 system-ui, sans-serif; color: rgba(255,255,255,.75); background: none; border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
 #artbar button.active { background: #f7f3ea; color: #3a2f2a; }
 #artbar button:focus { outline: none; }
-#artbar .sep { width: 1px; margin: 4px 2px; background: rgba(255,255,255,.25); }
-#vol { display: flex; align-items: center; gap: 6px; padding: 0 10px; font: 600 13px/1 system-ui, sans-serif; color: rgba(255,255,255,.85); }
-#vol input { width: 80px; accent-color: #f7f3ea; margin: 0; }
-#vol b { width: 1.4em; text-align: right; font-weight: 600; }
 </style>
 </head>
 <body>
 <canvas id="canvas">Your browser does not support the canvas tag.</canvas>
-<div id="artbar" aria-label="그래픽과 세이브">
+<div id="artbar" aria-label="그래픽">
   <button data-art="original">원작 그래픽</button>
   <button data-art="remaster">리마스터</button>
-  <span class="sep"></span>
-  <label id="vol" title="볼륨 (게임의 사운드 설정과 같음)">🔊 <input id="volume" type="range" min="0" max="10" step="1" value="5"> <b id="volume-value">5</b></label>
-  <span class="sep"></span>
-  <button id="save-export" title="이 브라우저의 세이브를 JSON 파일로 내려받기">세이브 ↓</button>
-  <button id="save-import" title="JSON 파일의 세이브를 이 브라우저로 가져오기">세이브 ↑</button>
-  <input id="save-file" type="file" accept=".json,application/json" hidden>
 </div>
+<input id="save-file" type="file" accept=".json,application/json" hidden>
 <div id="status">
-  <h1>영웅서기 · 솔티아의 바람 리마스터</h1>
-  <progress id="progress"></progress>
-  <small id="detail"></small>
+  <img id="logo" src="img/logo.webp" alt="영웅서기 솔티아의 바람: 리마스터">
+  <div id="bar"><div id="fill"></div></div>
+  <small id="detail">불러오는 중</small>
   <pre id="notice"></pre>
 </div>
 <script src="godot.js"></script>
@@ -76,7 +78,7 @@ const engine = new Engine({
 });
 const canvas = document.getElementById('canvas');
 const status = document.getElementById('status');
-const progress = document.getElementById('progress');
+const fill = document.getElementById('fill');
 const detail = document.getElementById('detail');
 const notice = document.getElementById('notice');
 const artbar = document.getElementById('artbar');
@@ -84,7 +86,7 @@ const artButtons = [...artbar.querySelectorAll('button')];
 
 function fail(err) {
   console.error(err);
-  progress.remove();
+  document.getElementById('bar').remove();
   notice.textContent = err instanceof Error ? err.message : String(err);
 }
 
@@ -106,9 +108,8 @@ async function fetchParts(parts) {
         all.set(value, offset + got);
         got += value.length;
         done += value.length;
-        progress.value = done;
-        progress.max = total;
-        detail.textContent = `${(done / 1048576).toFixed(0)} / ${(total / 1048576).toFixed(0)} MB`;
+        fill.style.width = `${(done / total) * 100}%`;
+        detail.textContent = `${(done / 1048576).toFixed(0)} / ${(total / 1048576).toFixed(0)} MB · ${Math.floor((done / total) * 100)}%`;
       }
       if (got !== size) throw new Error(`${name}: got ${got} of ${size} bytes`);
     });
@@ -133,35 +134,16 @@ artButtons.forEach((b) => {
   b.onclick = () => { if (window.heroLordSetArt) window.heroLordSetArt(b.dataset.art); canvas.focus(); };
 });
 
-// Volume: the game's own 사운드 setting (0..10), reachable from any screen here.
-const volume = document.getElementById('volume');
-const volumeValue = document.getElementById('volume-value');
-volume.oninput = () => { volumeValue.textContent = volume.value; if (window.heroLordSetVolume) window.heroLordSetVolume(Number(volume.value)); };
-volume.onchange = () => canvas.focus();
-window.addEventListener('herolord-volume', (e) => { volume.value = e.detail; volumeValue.textContent = e.detail; });
-
-// Save transfer (web ↔ web). The shim exposes heroLordExportSaves/heroLordImportSaves and
-// leaves the result on window.* because JavaScriptBridge callbacks cannot return values.
-document.getElementById('save-export').onclick = () => {
-  if (!window.heroLordExportSaves) return;
-  window.heroLordExportSaves();
-  const blob = new Blob([window.heroLordSaveBundle || '{}'], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `herolord-saves-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  canvas.focus();
-};
+// Save import: the game's 환경설정 row (added by the shim) opens this picker; the shim's
+// heroLordImportSaves writes the files and leaves the count on window.heroLordImportResult.
 const saveFile = document.getElementById('save-file');
-document.getElementById('save-import').onclick = () => saveFile.click();
 saveFile.onchange = async () => {
   const file = saveFile.files[0];
   if (!file || !window.heroLordImportSaves) return;
   window.heroLordImportSaves(await file.text());
-  const n = window.heroLordImportResult;
-  if (n > 0) { setTimeout(() => location.reload(), 1200); }   // let IDBFS sync, then the title lists them
+  if (window.heroLordImportResult > 0) setTimeout(() => location.reload(), 1200);   // let IDBFS sync, then 이어하기 lists them
   else alert('세이브 파일 형식이 아닙니다.');
+  saveFile.value = '';
 };
 
 const missing = Engine.getMissingFeatures({ threads: false });
@@ -173,10 +155,10 @@ if (missing.length) {
   Promise.all([engine.init('godot'), fetchParts(PARTS)])
     .then(([, pack]) => {
       engine.preloadFile(pack, PACK);
-      detail.textContent = '';
+      detail.textContent = '시작하는 중';
       return engine.start({ args: ['--main-pack', PACK, '--', `art=${art}`] });
     })
-    .then(() => { status.remove(); artbar.classList.add('show'); }, fail);
+    .then(() => { status.classList.add('done'); setTimeout(() => status.remove(), 700); artbar.classList.add('show'); }, fail);
 }
 </script>
 </body>

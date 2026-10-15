@@ -56,28 +56,30 @@ func _apply_art_choice() -> void:
 const DEFAULT_VOLUME := 5
 
 
-# window.heroLordSetVolume(0..10): the game's set_sound_volume + save, usable from any
-# screen (the game only offers 사운드 on the title's 환경설정 page).
-func _set_volume_from_page(args: Array) -> void:
-	if game == null or args.is_empty():
+# 환경설정 (title) gets two rows for the save bundle. The game rebuilds that page on every
+# change, so this re-adds the rows whenever they are missing, just above the back key.
+# Export downloads straight from GDScript; import opens the page's file picker (the page
+# then calls heroLordImportSaves and reloads).
+func _inject_option_rows() -> void:
+	if game == null or game.get("menu_page") != "options" or not OS.has_feature("web"):
 		return
-	game.call("set_sound_volume", clampi(int(args[0]), 0, 10))
-	game.call("_save_options")
-
-
-var _volume_pushed := -1
-
-
-func _push_volume_state() -> void:
-	if game == null or not OS.has_feature("web"):
+	var box: Node = game.get("menu_box")
+	if box == null or box.has_node("WebSaveExport"):
 		return
-	var options: Variant = game.get("options")
-	if not (options is Dictionary):
-		return
-	var level := int(options.get("sound", 10))
-	if level != _volume_pushed:
-		_volume_pushed = level
-		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('herolord-volume', {detail: %d}))" % level)
+	var export_row: Button = game.call("_paper_item", "세이브 내보내기 (파일 저장)", _export_saves.bind([]))
+	export_row.name = "WebSaveExport"
+	var import_row: Button = game.call("_paper_item", "세이브 가져오기 (파일 선택)", _open_import_picker)
+	import_row.name = "WebSaveImport"
+	for i in box.get_child_count():
+		if str(box.get_child(i).get_meta("kind", "")) == "back":
+			box.move_child(export_row, i)
+			box.move_child(import_row, i + 1)
+			break
+	game.call("_layout")
+
+
+func _open_import_picker() -> void:
+	JavaScriptBridge.eval("document.getElementById('save-file').click()")
 
 
 func _ready() -> void:
@@ -86,24 +88,21 @@ func _ready() -> void:
 	timer.timeout.connect(_attach_hints)
 	timer.timeout.connect(_guard_guardians)
 	timer.timeout.connect(_push_art_state)
-	timer.timeout.connect(_push_volume_state)
+	timer.timeout.connect(_inject_option_rows)
 	add_child(timer)
 	timer.start()
 	if OS.has_feature("web"):
 		# window.heroLordSetArt('original'|'remaster') from the page's toggle
 		_js_set_art = JavaScriptBridge.create_callback(_set_art_from_page)
-		_js_set_volume = JavaScriptBridge.create_callback(_set_volume_from_page)
 		_js_export = JavaScriptBridge.create_callback(_export_saves)
 		_js_import = JavaScriptBridge.create_callback(_import_saves)
 		var window := JavaScriptBridge.get_interface("window")
 		window.heroLordSetArt = _js_set_art
-		window.heroLordSetVolume = _js_set_volume
 		window.heroLordExportSaves = _js_export
 		window.heroLordImportSaves = _js_import
 
 
 var _js_set_art: JavaScriptObject
-var _js_set_volume: JavaScriptObject
 var _js_export: JavaScriptObject
 var _js_import: JavaScriptObject
 var _art_pushed := ""
@@ -125,7 +124,9 @@ func _export_saves(_args: Array) -> void:
 			if f.ends_with(".json"):
 				files["saves/" + f] = FileAccess.get_file_as_string("user://saves/" + f)
 	var bundle := {"game": "HeroLordRemaster", "exported": Time.get_datetime_string_from_system(), "files": files}
-	JavaScriptBridge.get_interface("window").heroLordSaveBundle = JSON.stringify(bundle, "\t")
+	var text := JSON.stringify(bundle, "\t")
+	JavaScriptBridge.get_interface("window").heroLordSaveBundle = text
+	JavaScriptBridge.download_buffer(text.to_utf8_buffer(), "herolord-saves-%s.json" % Time.get_date_string_from_system(), "application/json")
 
 
 func _import_saves(args: Array) -> void:

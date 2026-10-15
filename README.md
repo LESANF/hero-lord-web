@@ -54,7 +54,8 @@ official Godot 4.6 web template (godot.wasm, nothreads) + web/index.html ─▶ 
 | assemble | `tools/build_web.py` | pulls the 9.5 MB web template out of the 1.25 GB official tpz with HTTP range requests (sha256 pinned), splits the PCK, writes `index.html` |
 | all of it | `./build.sh game.apk` | ~25 s on a laptop; the site is 157 MB of game data + 38 MB of engine |
 
-`web/index.html` downloads the parts, hands the buffer to the engine with
+`web/index.html` shows a loading screen (pixel-art backdrop in `web/img/loading.jpg`,
+progress bar with MB and %) while it downloads the parts, hands the buffer to the engine with
 `preloadFile` and starts it with `--main-pack … -- art=<remembered choice>`. The
 page-level art switch talks to the game through `window.heroLordSetArt`
 (exposed by the shim with `JavaScriptBridge`) and listens for `herolord-art`
@@ -71,7 +72,8 @@ Nothing in the game is modified. `web/override.cfg` is packed next to
 - adds `R` for auto-quest, the one HUD action the game left without a key
 - forces Godot's web audio to stream playback (`default_playback_type.web = 0`); the default "sample" mode cannot drive the game's custom buses and effects, which came out as silence
 - caps the new-game guardian pick at two (the game lets a third one through)
-- starts new players at volume 5/10 instead of the game's 10/10, and puts a volume slider on the page pill, since the game's 사운드 setting only exists on the title's 환경설정
+- starts new players at volume 5/10 instead of the game's 10/10 (the game's own 사운드 setting, on the title's 환경설정, stays in charge afterwards)
+- adds 세이브 내보내기 / 가져오기 rows to the title's 환경설정 page (see below)
 - applies the page's art choice: `art=original|remaster` user arg → `user://options.json` `new_art` before the game reads it, and a `JavaScriptBridge` callback for live switching from the page
 
 | action | keys |
@@ -92,9 +94,10 @@ Nothing in the game is modified. `web/override.cfg` is packed next to
 
 Saves are plain JSON under the game's `user://` (`saves/*.json`, `options.json`,
 `progress.json`, `cutscenes-seen.json`), which on the web lives in the browser's
-IndexedDB (`/userfs/HeroLordRemaster/…`). The pill at the top of the page has
-**세이브 ↓** (download everything as one JSON file) and **세이브 ↑** (pick that
-file in another browser; the page reloads and the title's 이어하기 lists them).
+IndexedDB (`/userfs/HeroLordRemaster/…`). The title's **환경설정** page has two
+extra rows on the web: **세이브 내보내기** (downloads everything as one JSON file)
+and **세이브 가져오기** (pick that file in another browser; the page reloads and
+이어하기 lists them).
 Browser ↔ browser only: the Android app keeps its saves in app-private storage
 with `allowBackup=false`, so nothing can be pulled from or pushed to it.
 

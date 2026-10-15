@@ -104,6 +104,9 @@ def main(out: str, local_template: str | None = None) -> None:
             (out_dir / name).write_bytes(z.read(name))
     parts = split_pack(out_dir)
     (out_dir / "og.jpg").write_bytes((ROOT / "web" / "og.jpg").read_bytes())   # link preview image
+    (out_dir / "img").mkdir(exist_ok=True)
+    for img in (ROOT / "web" / "img").glob("*"):                                # loading backdrop etc.
+        (out_dir / "img" / img.name).write_bytes(img.read_bytes())
     html = (ROOT / "web" / "index.html").read_text()
     html = html.replace("__PARTS__", json.dumps(parts)).replace("__WASM_SIZE__", str((out_dir / "godot.wasm").stat().st_size))
     (out_dir / "index.html").write_text(html)
