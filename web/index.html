@@ -19,7 +19,7 @@
 <style>
 html, body, #canvas { margin: 0; padding: 0; border: 0; }
 body { background: #0b1326; color: #3a2f2a; overflow: hidden; touch-action: none; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
-#canvas { display: block; }
+#canvas { display: block; image-rendering: pixelated; }
 #canvas:focus { outline: none; }
 
 /* loading screen */
@@ -67,6 +67,12 @@ body { background: #0b1326; color: #3a2f2a; overflow: hidden; touch-action: none
 const PACK = 'hero-lord.pck';
 const PARTS = __PARTS__;
 const WASM_SIZE = __WASM_SIZE__;
+
+// Phones report devicePixelRatio 2.6-3.5, so Godot would render ~9x the pixels of a
+// 1x canvas every frame. It is pixel art: render at most 1.5x and let CSS upscale crisp.
+if (matchMedia('(pointer: coarse)').matches && window.devicePixelRatio > 1.5) {
+  Object.defineProperty(window, 'devicePixelRatio', { get: () => 1.5 });
+}
 
 const engine = new Engine({
   executable: 'godot',

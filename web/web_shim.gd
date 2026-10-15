@@ -89,6 +89,7 @@ func _ready() -> void:
 	timer.timeout.connect(_guard_guardians)
 	timer.timeout.connect(_push_art_state)
 	timer.timeout.connect(_inject_option_rows)
+	timer.timeout.connect(_wire_stick)
 	add_child(timer)
 	timer.start()
 	if OS.has_feature("web"):
@@ -264,3 +265,69 @@ func _hint(target: Control, text: String) -> void:
 	label.offset_right = half.x
 	label.offset_top = -half.y
 	label.offset_bottom = half.y
+
+
+# ── Mobile movement: make the touch stick feel like WASD ─────────────────────────────
+# The game's VirtualJoystick is analog (dead zone, partial speed, any angle) and only
+# starts when the thumb lands inside the drawn circle. On a phone that reads as sluggish
+# and easy to miss. Two changes, both outside the game's code:
+#  1. Floating origin: a touch anywhere in the lower-left movement zone moves the stick
+#     under the thumb first (Window.window_input fires before any node's _input), so the
+#     stick itself then begins on that touch as usual. It snaps back on release.
+#  2. Digital output: the stick's vector is snapped to 8 directions at full length before
+#     the game sees it, which is exactly what held WASD keys produce.
+var _stick_wired := false
+var _stick_touch := -1
+var _stick_home := Vector2.ZERO
+
+
+func _wire_stick() -> void:
+	if _stick_wired or game == null:
+		return
+	var stick: Control = game.get("joystick")
+	if stick == null:
+		return
+	var target := Callable(game, "_joystick_changed")
+	if stick.vector_changed.is_connected(target):
+		stick.vector_changed.disconnect(target)
+	stick.vector_changed.connect(_stick_changed)
+	get_tree().root.window_input.connect(_window_input)
+	_stick_wired = true
+
+
+func _stick_changed(value: Vector2) -> void:
+	var snapped := Vector2.ZERO
+	if value.length() > 0.0 and value.is_finite():
+		snapped = Vector2.from_angle(roundf(value.angle() / (PI / 4.0)) * (PI / 4.0))
+		snapped = Vector2(roundf(snapped.x * 1000.0), roundf(snapped.y * 1000.0)) / 1000.0
+	game.call("_joystick_changed", snapped)
+
+
+func _in_move_zone(stick: Control, at: Vector2) -> bool:
+	var view := get_viewport().get_visible_rect().size
+	if at.x > view.x * 0.5 or at.y < view.y * 0.4:
+		return false
+	if game.get("mode") != "play" or not stick.get("enabled") or not stick.is_visible_in_tree():
+		return false
+	for panel in ["menu_panel", "story_menu", "talk_log", "minimap"]:
+		var node: Variant = game.get(panel)
+		if node is CanvasItem and (node as CanvasItem).is_visible_in_tree():
+			return false
+	return true
+
+
+func _window_input(event: InputEvent) -> void:
+	if game == null or event.device == InputEvent.DEVICE_ID_EMULATION or not (event is InputEventScreenTouch):
+		return
+	var stick: Control = game.get("joystick")
+	if stick == null:
+		return
+	if event.pressed and not event.canceled:
+		if _stick_touch == -1 and int(stick.get("active_touch_id")) == -1 and _in_move_zone(stick, event.position):
+			_stick_touch = event.index
+			_stick_home = stick.position
+			var centre: Vector2 = stick.get_global_transform_with_canvas() * (stick.size * 0.5)
+			stick.position += event.position - centre
+	elif event.index == _stick_touch:
+		_stick_touch = -1
+		stick.set_deferred("position", _stick_home)
