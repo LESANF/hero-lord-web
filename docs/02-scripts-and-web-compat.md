@@ -126,6 +126,20 @@ disables 모험 시작 until one is unpicked. The shim connects to each card's
 once two are chosen (the router already skips disabled buttons), clearing it
 when a pick is removed or the page is reset.
 
+## Art choice from the landing page
+
+Both art sets are in the pack: the KTF-era originals under `assets/game`,
+`assets/world` and the remaster under `assets/modern_pixel`. `world_view.gd`
+switches on `modern_art_enabled`; the game persists it as `options.new_art`
+(default `true`) in `user://options.json` and applies it in `_load_options()`
+(`game.gd:3784`). The game also already reads user args there
+(`--unlock-heroes`), so the page passes `-- art=original|remaster` and the shim's
+`_init` merges `new_art` into that file before the main scene is instantiated.
+Nothing else in the file is touched, so sound/speed/layout settings survive.
+
+![same scene, original art](img/ingame-original.jpg)
+![same scene, remaster art](img/ingame-remaster.jpg)
+
 ## Save data
 
 `user://` → `HeroLordRemaster` custom dir → on web this is IndexedDB
