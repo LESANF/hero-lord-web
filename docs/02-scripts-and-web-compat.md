@@ -137,6 +137,14 @@ switches on `modern_art_enabled`; the game persists it as `options.new_art`
 `_init` merges `new_art` into that file before the main scene is instantiated.
 Nothing else in the file is touched, so sound/speed/layout settings survive.
 
+Live switching: the shim registers `window.heroLordSetArt` with
+`JavaScriptBridge.create_callback` and runs the same steps as the game's own
+toggles (`_title_art`, `_story_menu_art`): `world.set_modern_art_enabled`,
+`options.new_art`, `_save_options`, `_apply_art_choice`, `_layout`, plus
+`_show_options` when that page is open. A 0.3 s tick dispatches a `herolord-art`
+DOM event whenever `modern_art_enabled` changes, so the page's switch follows
+changes made inside the game too.
+
 ![same scene, original art](img/ingame-original.jpg)
 ![same scene, remaster art](img/ingame-remaster.jpg)
 

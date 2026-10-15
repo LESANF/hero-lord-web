@@ -7,8 +7,10 @@ Android APK) running in the browser.
 
 ## 원작 그래픽 / 리마스터 그래픽
 
-The game ships both art sets. The page asks which one before it starts; the
-choice is remembered, and the game's own 환경설정 switches at any time.
+The game ships both art sets. The page starts straight into the game with the
+last choice (first visit: 원작) and keeps a small **원작 그래픽 | 리마스터** switch
+at the top of the page that flips the art live, the same thing the game's own
+환경설정 does; either side stays in sync with the other.
 
 | 원작 그래픽 (2005, KTF) | 리마스터 그래픽 |
 |---|---|
@@ -47,9 +49,11 @@ official Godot 4.6 web template (godot.wasm, nothreads) + web/index.html ─▶ 
 | assemble | `tools/build_web.py` | pulls the 9.5 MB web template out of the 1.25 GB official tpz with HTTP range requests (sha256 pinned), splits the PCK, writes `index.html` |
 | all of it | `./build.sh game.apk` | ~25 s on a laptop; the site is 157 MB of game data + 38 MB of engine |
 
-`web/index.html` starts downloading the parts immediately, shows the two art
-cards while that runs, then hands the buffer to the engine with `preloadFile`
-and starts it with `--main-pack … -- art=<choice>`. Single-threaded template, so
+`web/index.html` downloads the parts, hands the buffer to the engine with
+`preloadFile` and starts it with `--main-pack … -- art=<remembered choice>`. The
+page-level art switch talks to the game through `window.heroLordSetArt`
+(exposed by the shim with `JavaScriptBridge`) and listens for `herolord-art`
+events the shim fires when the game changes it. Single-threaded template, so
 no COOP/COEP headers are needed and any static host works.
 
 ## Web-only shim
@@ -62,7 +66,7 @@ Nothing in the game is modified. `web/override.cfg` is packed next to
 - adds `R` for auto-quest, the one HUD action the game left without a key
 - forces Godot's web audio to stream playback (`default_playback_type.web = 0`); the default "sample" mode cannot drive the game's custom buses and effects, which came out as silence
 - caps the new-game guardian pick at two (the game lets a third one through)
-- writes the landing-page art choice (`art=original|remaster` user arg) into `user://options.json` as `new_art` before the game reads its options
+- applies the page's art choice: `art=original|remaster` user arg → `user://options.json` `new_art` before the game reads it, and a `JavaScriptBridge` callback for live switching from the page
 
 | action | keys |
 |---|---|
