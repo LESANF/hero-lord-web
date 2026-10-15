@@ -37,6 +37,15 @@ body { background: #0b1326; color: #3a2f2a; overflow: hidden; touch-action: none
 #status small { font-size: 13px; letter-spacing: .06em; opacity: .8; min-height: 1.2em; }
 #status pre { margin: 0; white-space: pre-wrap; color: #ffb3b3; font-size: 13px; }
 
+/* in-app browser notice (Threads/Instagram/KakaoTalk...): their sheet gestures eat drags */
+#inapp { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: none; align-items: center; gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 10px) 12px 10px 14px; background: rgba(20, 16, 14, .92); color: #fff;
+  font: 500 13px/1.35 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+#inapp.show { display: flex; }
+#inapp span { flex: 1; }
+#inapp a { flex: none; padding: 8px 12px; border-radius: 8px; background: #ffd56b; color: #2a2118; font-weight: 700; text-decoration: none; }
+#inapp button { flex: none; background: none; border: 0; color: rgba(255,255,255,.7); font-size: 20px; line-height: 1; padding: 4px 6px; }
+
 /* art switch: lives on the page, above the canvas, top centre where the game draws nothing */
 #artbar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); display: none; padding: 3px; border-radius: 999px;
   background: rgba(30, 26, 24, .72); backdrop-filter: blur(6px); box-shadow: 0 2px 8px rgba(0,0,0,.25); touch-action: manipulation; }
@@ -53,6 +62,11 @@ body { background: #0b1326; color: #3a2f2a; overflow: hidden; touch-action: none
   <button data-art="original">원작 그래픽</button>
   <button data-art="remaster">리마스터</button>
 </div>
+<div id="inapp" role="alert">
+  <span>앱 안 브라우저에서는 화면을 끌어도 앱이 가로채서 이동이 안 돼요.</span>
+  <a id="inapp-open" href="#">브라우저로 열기</a>
+  <button id="inapp-close" aria-label="닫기">×</button>
+</div>
 <input id="save-file" type="file" accept=".json,application/json" hidden>
 <div id="status">
   <img id="logo" src="img/logo.webp" alt="영웅서기 솔티아의 바람: 리마스터">
@@ -68,6 +82,29 @@ body { background: #0b1326; color: #3a2f2a; overflow: hidden; touch-action: none
 const PACK = 'hero-lord.pck';
 const PARTS = __PARTS__;
 const WASM_SIZE = __WASM_SIZE__;
+
+// In-app browsers (Threads, Instagram, Facebook, KakaoTalk, Naver, Line...) present the page in a
+// sheet whose native swipe gestures cancel our touches mid-drag, so the joystick never moves.
+// Nothing in the page can turn that off; offer a one-tap jump to the real browser instead.
+(() => {
+  const ua = navigator.userAgent;
+  if (!/Barcelona|Instagram|FBAN|FBAV|KAKAOTALK|NAVER\(inapp|Line\/|Daum|everytimeApp|DaumApps/i.test(ua)) return;
+  const bar = document.getElementById('inapp');
+  const open = document.getElementById('inapp-open');
+  const url = location.href;
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    open.href = 'x-safari-' + url;                                    // iOS 17+: opens Safari
+    open.textContent = 'Safari로 열기';
+  } else if (/Android/i.test(ua)) {
+    open.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+    open.textContent = 'Chrome으로 열기';
+  } else {
+    open.href = url;
+  }
+  if (/KAKAOTALK/i.test(ua)) open.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
+  document.getElementById('inapp-close').onclick = () => bar.classList.remove('show');
+  bar.classList.add('show');
+})();
 
 // Phones report devicePixelRatio 2.6-3.5, so Godot would render ~9x the pixels of a
 // 1x canvas every frame. It is pixel art: render at most 1.5x and let CSS upscale crisp.
