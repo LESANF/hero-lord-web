@@ -19,6 +19,7 @@ func _init() -> void:
 	Input.set_emulate_touch_from_mouse(true)
 	print("WebShim: emulate_touch_from_mouse=", Input.is_emulating_touch_from_mouse())
 	_apply_art_choice()
+	_quarantine_bad_saves()
 	if not InputMap.has_action("hero_auto"):
 		InputMap.add_action("hero_auto")
 		var key := InputEventKey.new()
@@ -70,10 +71,13 @@ func _inject_option_rows() -> void:
 	export_row.name = "WebSaveExport"
 	var import_row: Button = game.call("_paper_item", "세이브 가져오기 (파일 선택)", _open_import_picker)
 	import_row.name = "WebSaveImport"
+	var reset_row: Button = game.call("_paper_item", "저장 데이터 초기화 (백업 후)", _reset_saves_pressed)
+	reset_row.name = "WebSaveReset"
 	for i in box.get_child_count():
 		if str(box.get_child(i).get_meta("kind", "")) == "back":
 			box.move_child(export_row, i)
 			box.move_child(import_row, i + 1)
+			box.move_child(reset_row, i + 2)
 			break
 	game.call("_layout")
 
@@ -182,8 +186,10 @@ func _push_art_state() -> void:
 	if state != _art_pushed:
 		_art_pushed = state
 		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('herolord-art', {detail: '%s'}))" % state)
-	# The page's art pill is for the title screens only; hide it once the game is running.
-	var on_title: bool = game.get("mode") == "title"
+	# The page's art pill is for the press screen and the main title menu only: in game it
+	# sits on the HUD, and on portrait phones it covers the headers of the other title pages
+	# (영웅 선택, 가디언, 환경설정 – which has its own 그래픽 row anyway).
+	var on_title: bool = game.get("mode") == "title" and str(game.get("menu_page")) in ["press", "title"]
 	if on_title != _title_pushed:
 		_title_pushed = on_title
 		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('herolord-title', {detail: %s}))" % ("true" if on_title else "false"))
@@ -337,3 +343,62 @@ func _window_input(event: InputEvent) -> void:
 	elif event.index == _stick_touch:
 		_stick_touch = -1
 		stick.set_deferred("position", _stick_home)
+
+
+# ── Save recovery ─────────────────────────────────────────────────────────────────────
+# A session that ran a mixed-cache (corrupt) pack could leave user:// files behind that
+# the game still loads but cannot play (reported: 이어하기 works, nothing moves; 새로하기
+# is fine). Two layers: unreadable files are moved aside before the game ever lists
+# them, and 환경설정 gets a reset row that backs everything up and reloads.
+const SAVE_DIR := "user://saves"
+
+
+func _quarantine_bad_saves() -> void:
+	var dir := DirAccess.open(SAVE_DIR)
+	if dir == null:
+		return
+	for f in dir.get_files():
+		if not f.ends_with(".json"):
+			continue
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(SAVE_DIR + "/" + f))
+		var ok: bool = parsed is Dictionary and int(parsed.get("schema", 0)) == 3 and parsed.get("story") is Dictionary \
+			and str(parsed.get("facing", "")) != "" and parsed.get("map_id") != null
+		if not ok:
+			DirAccess.make_dir_recursive_absolute("user://saves_bad")
+			var bad := FileAccess.open("user://saves_bad/" + f, FileAccess.WRITE)   # copy+close syncs IDBFS
+			if bad != null:
+				bad.store_string(FileAccess.get_file_as_string(SAVE_DIR + "/" + f))
+				bad.close()
+				DirAccess.remove_absolute(SAVE_DIR + "/" + f)
+			print("WebShim: quarantined unreadable save ", f)
+
+
+var _reset_armed_at := 0
+
+
+func _reset_saves_pressed() -> void:
+	var now := Time.get_ticks_msec()
+	var row: Variant = game.get("menu_box").get_node_or_null("WebSaveReset") if game != null else null
+	if now - _reset_armed_at > 5000:
+		_reset_armed_at = now
+		if row is Button:
+			row.text = "정말 초기화? 한 번 더 누르면 실행"
+		return
+	var stamp := Time.get_datetime_string_from_system().replace(":", "-")
+	var backup := "user://backup-" + stamp
+	DirAccess.make_dir_recursive_absolute(backup)
+	if DirAccess.dir_exists_absolute(SAVE_DIR):
+		DirAccess.rename_absolute(SAVE_DIR, backup + "/saves")
+	for name in ["progress.json", "cutscenes-seen.json", "last_moments.json"]:
+		if FileAccess.file_exists("user://" + name):
+			DirAccess.rename_absolute("user://" + name, backup + "/" + name)
+	# Renames alone never reach IndexedDB: the web port syncs the virtual FS only when a
+	# file is closed. Writing this note triggers that sync for everything moved above.
+	var note := FileAccess.open(backup + "/README.txt", FileAccess.WRITE)
+	if note != null:
+		note.store_string("Backup made by the web page's 저장 데이터 초기화 on %s. Move saves/ back to restore.\n" % stamp)
+		note.close()
+	if row is Button:
+		row.text = "초기화됨 · 다시 시작합니다"
+	await get_tree().create_timer(2.5).timeout     # let the IDBFS sync finish before the reload
+	JavaScriptBridge.eval("location.reload()")
