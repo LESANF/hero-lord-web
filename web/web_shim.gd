@@ -36,17 +36,48 @@ func _apply_art_choice() -> void:
 			want = "false"
 		elif arg == "art=remaster":
 			want = "true"
-	if want == "":
-		return
 	var path := "user://options.json"
-	var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(path)) if FileAccess.file_exists(path) else null
+	var first_run := not FileAccess.file_exists(path)
+	if want == "" and not first_run:
+		return
+	var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(path)) if not first_run else null
 	var options: Dictionary = saved if saved is Dictionary else {}
-	options["new_art"] = want == "true"
+	if want != "":
+		options["new_art"] = want == "true"
+	if first_run:
+		options["sound"] = DEFAULT_VOLUME  # the game's own default is 10/10; too loud for a browser tab
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(options, "\t") + "\n")
 		file.close()
-	print("WebShim: new_art=", options["new_art"])
+	print("WebShim: options first_run=", first_run, " new_art=", options.get("new_art"), " sound=", options.get("sound"))
+
+
+const DEFAULT_VOLUME := 5
+
+
+# window.heroLordSetVolume(0..10): the game's set_sound_volume + save, usable from any
+# screen (the game only offers 사운드 on the title's 환경설정 page).
+func _set_volume_from_page(args: Array) -> void:
+	if game == null or args.is_empty():
+		return
+	game.call("set_sound_volume", clampi(int(args[0]), 0, 10))
+	game.call("_save_options")
+
+
+var _volume_pushed := -1
+
+
+func _push_volume_state() -> void:
+	if game == null or not OS.has_feature("web"):
+		return
+	var options: Variant = game.get("options")
+	if not (options is Dictionary):
+		return
+	var level := int(options.get("sound", 10))
+	if level != _volume_pushed:
+		_volume_pushed = level
+		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('herolord-volume', {detail: %d}))" % level)
 
 
 func _ready() -> void:
@@ -55,20 +86,24 @@ func _ready() -> void:
 	timer.timeout.connect(_attach_hints)
 	timer.timeout.connect(_guard_guardians)
 	timer.timeout.connect(_push_art_state)
+	timer.timeout.connect(_push_volume_state)
 	add_child(timer)
 	timer.start()
 	if OS.has_feature("web"):
 		# window.heroLordSetArt('original'|'remaster') from the page's toggle
 		_js_set_art = JavaScriptBridge.create_callback(_set_art_from_page)
+		_js_set_volume = JavaScriptBridge.create_callback(_set_volume_from_page)
 		_js_export = JavaScriptBridge.create_callback(_export_saves)
 		_js_import = JavaScriptBridge.create_callback(_import_saves)
 		var window := JavaScriptBridge.get_interface("window")
 		window.heroLordSetArt = _js_set_art
+		window.heroLordSetVolume = _js_set_volume
 		window.heroLordExportSaves = _js_export
 		window.heroLordImportSaves = _js_import
 
 
 var _js_set_art: JavaScriptObject
+var _js_set_volume: JavaScriptObject
 var _js_export: JavaScriptObject
 var _js_import: JavaScriptObject
 var _art_pushed := ""

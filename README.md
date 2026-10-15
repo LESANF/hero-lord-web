@@ -71,6 +71,7 @@ Nothing in the game is modified. `web/override.cfg` is packed next to
 - adds `R` for auto-quest, the one HUD action the game left without a key
 - forces Godot's web audio to stream playback (`default_playback_type.web = 0`); the default "sample" mode cannot drive the game's custom buses and effects, which came out as silence
 - caps the new-game guardian pick at two (the game lets a third one through)
+- starts new players at volume 5/10 instead of the game's 10/10, and puts a volume slider on the page pill, since the game's 사운드 setting only exists on the title's 환경설정
 - applies the page's art choice: `art=original|remaster` user arg → `user://options.json` `new_art` before the game reads it, and a `JavaScriptBridge` callback for live switching from the page
 
 | action | keys |
