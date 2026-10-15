@@ -11,6 +11,7 @@ body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none
 #canvas:focus { outline: none; }
 #status { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; background: #f7f3ea; }
 #status progress { width: min(60vw, 420px); }
+#status small { opacity: .6; }
 #status pre { margin: 0 16px; white-space: pre-wrap; color: #9b3943; }
 </style>
 </head>
@@ -19,39 +20,76 @@ body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none
 <div id="status">
   <div>Hero Lord Remaster</div>
   <progress id="progress"></progress>
+  <small id="detail"></small>
   <pre id="notice"></pre>
 </div>
 <script src="godot.js"></script>
 <script>
-const CONFIG = {
+// Filled by tools/build_web.py. The PCK ships as <100 MB parts because static
+// hosts (Vercel, and to be safe GitHub Pages) cap single files; the parts are
+// fetched in parallel straight into one buffer and handed to the engine.
+const PACK = 'hero-lord.pck';
+const PARTS = __PARTS__;
+const WASM_SIZE = __WASM_SIZE__;
+
+const engine = new Engine({
   executable: 'godot',
-  mainPack: 'hero-lord.pck',
   canvasResizePolicy: 2,      // adaptive: canvas follows the window
   focusCanvas: true,
   experimentalVK: false,
   serviceWorker: false,
-  fileSizes: __FILE_SIZES__,  // filled by tools/build_web.py for the progress bar
-};
-const engine = new Engine(CONFIG);
+  fileSizes: { 'godot.wasm': WASM_SIZE },
+});
 const status = document.getElementById('status');
 const progress = document.getElementById('progress');
+const detail = document.getElementById('detail');
 const notice = document.getElementById('notice');
+
+function fail(err) {
+  console.error(err);
+  progress.remove();
+  notice.textContent = err instanceof Error ? err.message : String(err);
+}
+
+async function fetchParts(parts) {
+  const total = parts.reduce((sum, [, size]) => sum + size, 0);
+  const all = new Uint8Array(total);
+  let done = 0;
+  let base = 0;
+  await Promise.all(parts.map(([name, size]) => {
+    const offset = base;
+    base += size;
+    return fetch(name).then(async (res) => {
+      if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      let got = 0;
+      for (;;) {
+        const { value, done: end } = await reader.read();
+        if (end) break;
+        all.set(value, offset + got);
+        got += value.length;
+        done += value.length;
+        progress.value = done;
+        progress.max = total;
+        detail.textContent = `${(done / 1048576).toFixed(0)} / ${(total / 1048576).toFixed(0)} MB`;
+      }
+      if (got !== size) throw new Error(`${name}: got ${got} of ${size} bytes`);
+    });
+  }));
+  return all.buffer;
+}
 
 const missing = Engine.getMissingFeatures({ threads: false });
 if (missing.length) {
-  progress.remove();
-  notice.textContent = 'This browser is missing:\n' + missing.join('\n');
+  fail('This browser is missing:\n' + missing.join('\n'));
 } else {
-  engine.startGame({
-    onProgress(current, total) {
-      if (current > 0 && total > 0) { progress.value = current; progress.max = total; }
-      else { progress.removeAttribute('value'); progress.removeAttribute('max'); }
-    },
-  }).then(() => status.remove(), (err) => {
-    console.error(err);
-    progress.remove();
-    notice.textContent = err instanceof Error ? err.message : String(err);
-  });
+  Promise.all([engine.init('godot'), fetchParts(PARTS)])
+    .then(([, pack]) => {
+      engine.preloadFile(pack, PACK);
+      detail.textContent = '';
+      return engine.start({ args: ['--main-pack', PACK] });
+    })
+    .then(() => status.remove(), fail);
 }
 </script>
 </body>
