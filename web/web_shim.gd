@@ -182,10 +182,8 @@ func _push_art_state() -> void:
 	if state != _art_pushed:
 		_art_pushed = state
 		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('herolord-art', {detail: '%s'}))" % state)
-	# The page's art pill is for the press screen and the main title menu only: in game it
-	# sits on the HUD, and on portrait phones it covers the headers of the other title pages
-	# (영웅 선택, 가디언, 환경설정 – which has its own 그래픽 row anyway).
-	var on_title: bool = game.get("mode") == "title" and str(game.get("menu_page")) in ["press", "title"]
+	# The page's art pill is for the title screens only; hide it once the game is running.
+	var on_title: bool = game.get("mode") == "title"
 	if on_title != _title_pushed:
 		_title_pushed = on_title
 		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('herolord-title', {detail: %s}))" % ("true" if on_title else "false"))
