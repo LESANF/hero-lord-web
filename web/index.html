@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover">
+<title>Hero Lord Remaster</title>
+<style>
+html, body, #canvas { margin: 0; padding: 0; border: 0; }
+body { background: #f7f3ea; color: #3a2f2a; overflow: hidden; touch-action: none; font-family: system-ui, sans-serif; }
+#canvas { display: block; }
+#canvas:focus { outline: none; }
+#status { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; background: #f7f3ea; }
+#status progress { width: min(60vw, 420px); }
+#status pre { margin: 0 16px; white-space: pre-wrap; color: #9b3943; }
+</style>
+</head>
+<body>
+<canvas id="canvas">Your browser does not support the canvas tag.</canvas>
+<div id="status">
+  <div>Hero Lord Remaster</div>
+  <progress id="progress"></progress>
+  <pre id="notice"></pre>
+</div>
+<script src="godot.js"></script>
+<script>
+const CONFIG = {
+  executable: 'godot',
+  mainPack: 'hero-lord.pck',
+  canvasResizePolicy: 2,      // adaptive: canvas follows the window
+  focusCanvas: true,
+  experimentalVK: false,
+  serviceWorker: false,
+  fileSizes: __FILE_SIZES__,  // filled by tools/build_web.py for the progress bar
+};
+const engine = new Engine(CONFIG);
+const status = document.getElementById('status');
+const progress = document.getElementById('progress');
+const notice = document.getElementById('notice');
+
+const missing = Engine.getMissingFeatures({ threads: false });
+if (missing.length) {
+  progress.remove();
+  notice.textContent = 'This browser is missing:\n' + missing.join('\n');
+} else {
+  engine.startGame({
+    onProgress(current, total) {
+      if (current > 0 && total > 0) { progress.value = current; progress.max = total; }
+      else { progress.removeAttribute('value'); progress.removeAttribute('max'); }
+    },
+  }).then(() => status.remove(), (err) => {
+    console.error(err);
+    progress.remove();
+    notice.textContent = err instanceof Error ? err.message : String(err);
+  });
+}
+</script>
+</body>
+</html>
