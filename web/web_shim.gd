@@ -328,8 +328,36 @@ func _in_move_zone(stick: Control, at: Vector2) -> bool:
 	return true
 
 
+# iOS Safari numbers touches with large negative identifiers (-1615296909 in the 17 Pro
+# Max simulator) and Godot's web port copies that straight into ScreenTouch/ScreenDrag
+# .index. Every game handler keys dictionaries by it and copes, except virtual_joystick.gd,
+# which only follows a drag while `active_touch_id >= 0`: taps work on iPhone, the stick
+# never moves. window_input hands us the same event object the scene gets afterwards, so
+# the index is rewritten to a small slot (0, 1, ...) here, before anything else reads it.
+var _touch_slots := {}   # browser identifier -> slot
+
+
+func _slot_touch(event: InputEvent) -> void:
+	var id: int = event.index
+	if event is InputEventScreenTouch and event.pressed:
+		if not _touch_slots.has(id):
+			var slot := 0
+			while slot in _touch_slots.values():
+				slot += 1
+			_touch_slots[id] = slot
+		event.index = _touch_slots[id]
+		return
+	event.index = _touch_slots.get(id, maxi(id, 0))   # a drag/release whose press predates the shim
+	if event is InputEventScreenTouch:
+		_touch_slots.erase(id)
+
+
 func _window_input(event: InputEvent) -> void:
-	if game == null or event.device == InputEvent.DEVICE_ID_EMULATION or not (event is InputEventScreenTouch):
+	if game == null or event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		_slot_touch(event)
+	if not (event is InputEventScreenTouch):
 		return
 	var stick: Control = game.get("joystick")
 	if stick == null:
