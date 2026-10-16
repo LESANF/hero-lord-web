@@ -38,18 +38,11 @@ body { background: #0b1326; color: #3a2f2a; overflow: hidden; touch-action: none
 #status pre { margin: 0; white-space: pre-wrap; color: #ffb3b3; font-size: 13px; }
 
 /* in-app browser notice (Threads/Instagram/KakaoTalk...): their sheet gestures eat drags */
-#inapp { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: none; align-items: center; gap: 10px;
-  padding: calc(env(safe-area-inset-top) + 10px) 12px 10px 14px; background: rgba(20, 16, 14, .92); color: #fff;
-  font: 500 13px/1.35 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
-#inapp.show { display: flex; }
 /* in-app scroll guard: the page scrolls a little, the game stays fixed on screen */
 html.inapp { height: 100%; }
 html.inapp, html.inapp body { overflow: visible; }
 html.inapp #canvas, html.inapp #status { position: fixed !important; top: 0 !important; left: 0 !important; }
 html.inapp #status { right: 0; bottom: 0; }
-#inapp span { flex: 1; }
-#inapp a { flex: none; padding: 8px 12px; border-radius: 8px; background: #ffd56b; color: #2a2118; font-weight: 700; text-decoration: none; }
-#inapp button { flex: none; background: none; border: 0; color: rgba(255,255,255,.7); font-size: 20px; line-height: 1; padding: 4px 6px; }
 
 /* build id, title screens only, faint */
 #ver { position: fixed; left: 10px; bottom: calc(env(safe-area-inset-bottom) + 8px); z-index: 5; display: none; font: 500 11px/1 ui-monospace, Menlo, monospace; color: rgba(255,255,255,.45); text-shadow: 0 1px 2px rgba(0,0,0,.6); pointer-events: none; }
@@ -70,11 +63,6 @@ html.inapp #status { right: 0; bottom: 0; }
 <div id="artbar" aria-label="그래픽">
   <button data-art="original">원작 그래픽</button>
   <button data-art="remaster">리마스터</button>
-</div>
-<div id="inapp" role="alert">
-  <span>이동이 안 되면 브라우저에서 열어 주세요.</span>
-  <a id="inapp-open" href="#">브라우저로 열기</a>
-  <button id="inapp-close" aria-label="닫기">×</button>
 </div>
 <div id="ver"></div>
 <input id="save-file" type="file" accept=".json,application/json" hidden>
@@ -100,15 +88,11 @@ console.log('hero-lord-web build', BUILD);
 // and the game only gets touchcancel, so the joystick never moves. Two layers:
 //  1. Keep the document scrolled a little (canvas fixed on top) so the sheet sees content that
 //     can scroll and leaves the drag to the page; the game already preventDefaults touchmove.
-//  2. A banner offering the real browser: Chrome if installed (iOS: googlechromes://), else the
-//     system browser (Android intent without a package, KakaoTalk openExternal), else copy link.
+// (The "open in Chrome" banner that used to sit on top was dropped once the stick fix
+// in web_shim.gd made the game playable inside Threads; the guard alone is enough.)
 (() => {
   const ua = navigator.userAgent;
   if (!/Barcelona|Instagram|FBAN|FBAV|KAKAOTALK|NAVER\(inapp|Line\/|DaumApps|everytimeApp/i.test(ua)) return;
-  const ios = /iPhone|iPad|iPod/i.test(ua);
-  const android = /Android/i.test(ua);
-  const url = location.href;
-  const bare = url.replace(/^https?:\/\//, '');
 
   // 1. scroll guard
   const PAD = 120;
@@ -119,32 +103,6 @@ console.log('hero-lord-web build', BUILD);
   window.addEventListener('resize', keep);
   requestAnimationFrame(keep);
 
-  // 2. banner
-  const bar = document.getElementById('inapp');
-  const open = document.getElementById('inapp-open');
-  const say = (t) => { bar.querySelector('span').textContent = t; };
-  const copy = () => {
-    const done = () => say('링크를 복사했어요. 크롬이나 사파리 주소창에 붙여넣어 주세요. (오른쪽 위 ⋯ → 외부 브라우저로 열기도 돼요)');
-    if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, done); else done();
-  };
-  if (/KAKAOTALK/i.test(ua)) {
-    open.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
-  } else if (android) {
-    // no package: Android hands it to the user's default browser (Chrome, Samsung Internet...)
-    open.href = 'intent://' + bare + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
-  } else if (ios) {
-    open.href = (url.startsWith('https') ? 'googlechromes://' : 'googlechrome://') + bare;
-    open.addEventListener('click', () => {
-      // If Chrome is not installed nothing happens and the page stays visible: fall back.
-      const t0 = Date.now();
-      setTimeout(() => { if (document.visibilityState === 'visible' && Date.now() - t0 < 2500) copy(); }, 1500);
-    });
-  } else {
-    open.href = url;
-  }
-  open.textContent = '크롬으로 열기';
-  document.getElementById('inapp-close').onclick = () => bar.classList.remove('show');
-  bar.classList.add('show');
 })();
 
 // Phones report devicePixelRatio 2.6-3.5, so Godot would render ~9x the pixels of a
@@ -255,7 +213,6 @@ if (missing.length) {
     })
     .then(() => {
       status.classList.add('done'); setTimeout(() => status.remove(), 700); artbar.classList.add('show');
-      setTimeout(() => document.getElementById('inapp').classList.remove('show'), 10000);   // don't sit on the HUD's 메뉴 key
     }, fail);
 }
 </script>
