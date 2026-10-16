@@ -76,6 +76,20 @@ Scene nodes' `_input` (virtual joystick, which explicitly skips emulated events,
 and the title press screen) run before an autoload's, so they still get the
 mouse; only the GUI stage is cut. Wheel and right/middle buttons pass through.
 
+### iPhone: touch identifiers are negative
+
+Reported as "everything works on iPhone except the stick" (Safari and Chrome,
+which is WebKit too). WebKit numbers touches with large negative identifiers
+(`-1615296909` in the iPhone 17 Pro Max simulator, measured with a plain
+`touchstart` listener) and `godot.js` writes `touch.identifier` straight into
+the `i32` the engine uses as `InputEventScreenTouch.index`. Every game handler
+keys a dictionary by that index and copes, except `virtual_joystick.gd:93`,
+which follows a drag only while `active_touch_id >= 0`: taps work, the stick
+never moves. The shim's `_window_input` (which sees the same event object the
+scene gets afterwards) rewrites the index to a small slot (0, 1, ...) per
+browser identifier before anything else reads it. Verified in the simulator:
+same build, same gestures, hero walks.
+
 Not done, deliberately:
 
 - Removing the `GodotPlayGameServices` autoload: it is harmless without the
